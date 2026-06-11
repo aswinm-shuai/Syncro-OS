@@ -97,7 +97,7 @@
 
     // ===================== LANDING PAGE =====================
     function openLandingPage() {
-      window.open('../landing-page/index.html', '_blank');
+      window.open('https://aswinm-shuai.github.io/srisoengkem/', '_blank');
     }
     function closeLandingPage() {
       const lpView = document.getElementById('landing-page-view');
@@ -106,7 +106,7 @@
 
     // ===================== ORDER PAGE =====================
     function openOrderPage() {
-      window.open('../landing-page/index.html#menu', '_blank');
+      window.open('https://aswinm-shuai.github.io/srisoengkem/#menu', '_blank');
     }
     function closeOrderPage() {
       const opView = document.getElementById('order-page-view');
