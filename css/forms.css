@@ -1,0 +1,31 @@
+    /* FORM */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px
+    }
+
+    /* SEARCH */
+    .search-bar {
+      position: relative
+    }
+
+    .search-bar input {
+      padding-left: 36px
+    }
+
+    .search-bar i {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+      font-size: 14px
+    }
+
