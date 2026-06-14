@@ -1,23 +1,11 @@
 const CACHE_NAME = 'syncro-static-v1';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/css/layout.css',
-  '/css/dashboard.css',
-  '/css/table.css',
-  '/css/modal.css',
-  '/css/forms.css',
-  '/js/app.js',
-  '/js/dashboard.js',
-  '/js/products.js',
-  '/js/inventory.js',
-  '/js/hpp.js',
-  '/js/orders.js',
-  '/js/purchases.js',
-  '/js/reports.js',
-  '/js/customers.js',
-  '/js/settings.js',
-  '/manifest.json'
+  './',
+  './index.html',
+  './css/style.css',
+  './js/app.js',
+  './manifest.json',
+  './assets/icons/favicon.png'
 ];
 
 self.addEventListener('install', (event) => {
