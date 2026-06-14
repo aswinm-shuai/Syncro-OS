@@ -7,7 +7,8 @@
   <meta name="description" content="Syncro OS - Platform Operasional Bisnis Kuliner Terintegrasi">
   <meta name="theme-color" content="#0F6A4A">
   <title>Syncro OS – Business Operations in Sync.</title>
-  <link rel="manifest" href="#" id="manifest-link">
+  <link rel="icon" href="assets/icons/favicon.png">
+  <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
@@ -1333,7 +1334,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Role</label>
-          <select id="reg-role">
+          <select id="reg-role" aria-label="Pilih Peran">
             <option value="admin">Admin</option>
             <option value="staff">Staff</option>
           </select>
@@ -1395,7 +1396,7 @@
             <div class="user-role" id="sidebar-role">Administrator</div>
           </div>
           <button class="btn-icon" style="margin-left:auto" onclick="event.stopPropagation();doLogout()"
-            title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+            title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
         </div>
       </div>
     </div>
@@ -1403,14 +1404,14 @@
     <!-- MAIN CONTENT -->
     <div class="main">
       <div class="topbar">
-        <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle Sidebar"><i class="fas fa-bars"></i></button>
         <div class="topbar-title" id="topbar-title">Dashboard</div>
         <div class="topbar-actions">
           <button class="btn-icon" onclick="toggleDark()" title="Toggle Dark Mode"><i class="fas fa-moon"
               id="dark-icon"></i></button>
           <button class="btn-icon" onclick="openOrderPage()" title="Buka Toko Online"><i
               class="fas fa-store"></i></button>
-          <button class="btn-icon" id="notif-btn" onclick="checkLowStock()"><i class="fas fa-bell"></i></button>
+          <button class="btn-icon" id="notif-btn" onclick="checkLowStock()" aria-label="Notifikasi"><i class="fas fa-bell"></i></button>
         </div>
       </div>
       <div class="content" id="main-content"></div>
@@ -2004,11 +2005,11 @@
       editingId = id;
       const p = id ? DB.products.find(x => x.id === id) : { name: '', price: '', desc: '', category: 'Makanan', available: true, emoji: '🍽️', imageUrl: '' };
       showModal(`
-    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Produk</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Produk</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="form-group"><label class="form-label">Nama Produk *</label><input type="text" id="pf-name" value="${p.name}"></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Harga Jual *</label><div class="input-group"><span class="input-addon">Rp</span><input type="number" id="pf-price" value="${p.price}" style="border-radius:0 var(--radius) var(--radius) 0;border-left:none"></div></div>
-      <div class="form-group"><label class="form-label">Kategori</label><select id="pf-cat"><option ${p.category === 'Makanan' ? 'selected' : ''}>Makanan</option><option ${p.category === 'Minuman' ? 'selected' : ''}>Minuman</option><option ${p.category === 'Snack' ? 'selected' : ''}>Snack</option><option ${p.category === 'Lainnya' ? 'selected' : ''}>Lainnya</option></select></div>
+      <div class="form-group"><label class="form-label">Kategori</label><select id="pf-cat" aria-label="Pilihan"><option ${p.category === 'Makanan' ? 'selected' : ''}>Makanan</option><option ${p.category === 'Minuman' ? 'selected' : ''}>Minuman</option><option ${p.category === 'Snack' ? 'selected' : ''}>Snack</option><option ${p.category === 'Lainnya' ? 'selected' : ''}>Lainnya</option></select></div>
     </div>
     <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="pf-desc" rows="2">${p.desc || ''}</textarea></div>
     <div class="grid-2">
@@ -2021,7 +2022,7 @@
       <div class="form-group"><label class="form-label">Emoji (jika tanpa foto)</label><input type="text" id="pf-emoji" value="${p.emoji || '🍽️'}" style="font-size:20px"></div>
     </div>
     <div class="form-group"><label class="form-check"><input type="checkbox" id="pf-avail" ${p.available ? 'checked' : ''}><span>Produk tersedia (tampil di menu)</span></label></div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveProduct()">${id ? 'Simpan' : 'Tambah'}</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveProduct()">${id ? 'Simpan' : 'Tambah'}</button></div>
   `);
     }
 
@@ -2088,7 +2089,7 @@
     <td><strong>${i.stock}</strong> ${i.unit}</td>
     <td>${i.minStock} ${i.unit}</td>
     <td><span class="badge ${i.stock <= i.minStock ? 'badge-danger' : 'badge-success'}">${i.stock <= i.minStock ? 'Menipis' : 'Normal'}</span></td>
-    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showIngModal('${i.id}')"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteIng('${i.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
+    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showIngModal('${i.id}')" aria-label="Edit"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteIng('${i.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
   </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada bahan</td></tr>`;
     }
     function filterIngredients(v) { renderIngTable(DB.ingredients.filter(i => i.name.toLowerCase().includes(v.toLowerCase()))) }
@@ -2096,17 +2097,17 @@
       editingId = id;
       const i = id ? DB.ingredients.find(x => x.id === id) : { name: '', unit: 'gram', price: 0, stock: 0, minStock: 0 };
       showModal(`
-    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Bahan</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Bahan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="form-group"><label class="form-label">Nama Bahan *</label><input type="text" id="if-name" value="${i.name}"></div>
     <div class="grid-2">
-      <div class="form-group"><label class="form-label">Satuan *</label><select id="if-unit"><option ${i.unit === 'gram' ? 'selected' : ''}>gram</option><option ${i.unit === 'kg' ? 'selected' : ''}>kg</option><option ${i.unit === 'ml' ? 'selected' : ''}>ml</option><option ${i.unit === 'liter' ? 'selected' : ''}>liter</option><option ${i.unit === 'pcs' ? 'selected' : ''}>pcs</option><option ${i.unit === 'sdm' ? 'selected' : ''}>sdm</option></select></div>
+      <div class="form-group"><label class="form-label">Satuan *</label><select id="if-unit" aria-label="Pilihan"><option ${i.unit === 'gram' ? 'selected' : ''}>gram</option><option ${i.unit === 'kg' ? 'selected' : ''}>kg</option><option ${i.unit === 'ml' ? 'selected' : ''}>ml</option><option ${i.unit === 'liter' ? 'selected' : ''}>liter</option><option ${i.unit === 'pcs' ? 'selected' : ''}>pcs</option><option ${i.unit === 'sdm' ? 'selected' : ''}>sdm</option></select></div>
       <div class="form-group"><label class="form-label">Harga/Satuan (Rp)</label><input type="number" id="if-price" value="${i.price}"></div>
     </div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Stok Saat Ini</label><input type="number" id="if-stock" value="${i.stock}"></div>
       <div class="form-group"><label class="form-label">Stok Minimum</label><input type="number" id="if-minstock" value="${i.minStock}"></div>
     </div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveIng()">${id ? 'Simpan' : 'Tambah'}</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveIng()">${id ? 'Simpan' : 'Tambah'}</button></div>
   `);
     }
     function saveIng() {
@@ -2155,11 +2156,11 @@
     function showRecipeModal(productId = null) {
       const prods = DB.products;
       showModal(`
-    <div class="modal-header"><div class="modal-title">Buat / Edit Resep</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
-    <div class="form-group"><label class="form-label">Produk *</label><select id="rp-product" onchange="loadRecipeItems(this.value)">${prods.map(p => `<option value="${p.id}" ${p.id === productId ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div>
+    <div class="modal-header"><div class="modal-title">Buat / Edit Resep</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
+    <div class="form-group"><label class="form-label">Produk *</label><select id="rp-product" onchange="loadRecipeItems(this.value)" aria-label="Pilihan">${prods.map(p => `<option value="${p.id}" ${p.id === productId ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div>
     <div id="recipe-items-form" style="margin-bottom:16px"></div>
     <button class="btn-secondary btn-sm" onclick="addRecipeItemRow()" style="margin-bottom:16px"><i class="fas fa-plus" style="margin-right:4px"></i>Tambah Bahan</button>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveRecipe()">Simpan Resep</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveRecipe()">Simpan Resep</button></div>
   `);
       loadRecipeItems(productId || prods[0]?.id);
     }
@@ -2174,7 +2175,7 @@
       const f = document.getElementById('recipe-items-form');
       if (!f) return;
       f.innerHTML = recipeRows.map((row, i) => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-    <select style="flex:2" onchange="recipeRows[${i}].ingId=this.value">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === row.ingId ? 'selected' : ''}>${ing.name} (${ing.unit})</option>`).join('')}</select>
+    <select style="flex:2" onchange="recipeRows[${i}].ingId=this.value" aria-label="Pilihan">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === row.ingId ? 'selected' : ''}>${ing.name} (${ing.unit})</option>`).join('')}</select>
     <input type="number" style="width:90px" placeholder="Qty" value="${row.qty}" oninput="recipeRows[${i}].qty=parseFloat(this.value)||0">
     <button class="btn-icon" onclick="recipeRows.splice(${i},1);renderRecipeRows()" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
   </div>`).join('') || '<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:12px">Belum ada bahan. Klik "Tambah Bahan".</div>';
@@ -2393,7 +2394,7 @@
     }
     function showProcurementModal() {
       showModal(`
-    <div class="modal-header"><div class="modal-title">Input Pengadaan</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">Input Pengadaan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Tanggal *</label><input type="date" id="pr-date" value="${new Date().toISOString().split('T')[0]}"></div>
       <div class="form-group"><label class="form-label">Supplier</label><input type="text" id="pr-supplier" placeholder="Nama supplier"></div>
@@ -2401,7 +2402,7 @@
     <div style="font-size:13px;font-weight:600;color:var(--gray-500);margin-bottom:8px">BAHAN YANG DIBELI</div>
     <div id="pr-items"></div>
     <button class="btn-secondary btn-sm" onclick="addPRItem()" style="margin-bottom:16px"><i class="fas fa-plus" style="margin-right:4px"></i>Tambah Bahan</button>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveProcurement()">Simpan</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveProcurement()">Simpan</button></div>
   `);
       prItems = [{ ingId: DB.ingredients[0]?.id || '', qty: 0, unit: 'gram', totalPrice: 0 }];
       renderPRItems();
@@ -2410,9 +2411,9 @@
     function renderPRItems() {
       const el = document.getElementById('pr-items'); if (!el) return;
       el.innerHTML = prItems.map((it, i) => `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:8px">
-    <select onchange="prItems[${i}].ingId=this.value;updatePRUnit(${i})">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === it.ingId ? 'selected' : ''}>${ing.name}</option>`).join('')}</select>
+    <select onchange="prItems[${i}].ingId=this.value;updatePRUnit(${i})" aria-label="Pilihan">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === it.ingId ? 'selected' : ''}>${ing.name}</option>`).join('')}</select>
     <input type="number" placeholder="Qty" value="${it.qty}" oninput="prItems[${i}].qty=parseFloat(this.value)||0;updatePRCost(${i})">
-    <select onchange="prItems[${i}].unit=this.value" id="pr-unit-${i}"><option ${it.unit === 'gram' ? 'selected' : ''}>gram</option><option ${it.unit === 'kg' ? 'selected' : ''}>kg</option><option ${it.unit === 'ml' ? 'selected' : ''}>ml</option><option ${it.unit === 'liter' ? 'selected' : ''}>liter</option><option ${it.unit === 'pcs' ? 'selected' : ''}>pcs</option></select>
+    <select onchange="prItems[${i}].unit=this.value" id="pr-unit-${i}" aria-label="Pilihan"><option ${it.unit === 'gram' ? 'selected' : ''}>gram</option><option ${it.unit === 'kg' ? 'selected' : ''}>kg</option><option ${it.unit === 'ml' ? 'selected' : ''}>ml</option><option ${it.unit === 'liter' ? 'selected' : ''}>liter</option><option ${it.unit === 'pcs' ? 'selected' : ''}>pcs</option></select>
     <input type="number" placeholder="Total (Rp)" value="${it.totalPrice}" oninput="prItems[${i}].totalPrice=parseFloat(this.value)||0">
     <button class="btn-icon" onclick="prItems.splice(${i},1);renderPRItems()" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
   </div>`).join('');
@@ -2481,14 +2482,14 @@
     }
     function showExpenseModal() {
       showModal(`
-    <div class="modal-header"><div class="modal-title">Tambah Biaya</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">Tambah Biaya</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Tanggal *</label><input type="date" id="ef-date" value="${new Date().toISOString().split('T')[0]}"></div>
-      <div class="form-group"><label class="form-label">Kategori *</label><select id="ef-cat"><option>Listrik</option><option>Air</option><option>Gas</option><option>Gaji</option><option>Sewa</option><option>Bahan Bakar</option><option>Kebersihan</option><option>Lainnya</option></select></div>
+      <div class="form-group"><label class="form-label">Kategori *</label><select id="ef-cat" aria-label="Pilihan"><option>Listrik</option><option>Air</option><option>Gas</option><option>Gaji</option><option>Sewa</option><option>Bahan Bakar</option><option>Kebersihan</option><option>Lainnya</option></select></div>
     </div>
     <div class="form-group"><label class="form-label">Deskripsi</label><input type="text" id="ef-desc" placeholder="Keterangan biaya"></div>
     <div class="form-group"><label class="form-label">Jumlah (Rp) *</label><input type="number" id="ef-amount" placeholder="0"></div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveExpense()">Simpan</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveExpense()">Simpan</button></div>
   `);
     }
     function saveExpense() {
@@ -2592,18 +2593,18 @@
     <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.address || '-'}</td>
     <td>${c.totalOrders || 0}x</td>
     <td style="font-weight:600;color:var(--emerald)">${fmt(c.totalSpent || 0)}</td>
-    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showCustModal('${c.id}')"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteCust('${c.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
+    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showCustModal('${c.id}')" aria-label="Edit"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteCust('${c.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
   </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada pelanggan</td></tr>`;
     }
     function filterCustomers(v) { renderCustTable(DB.customers.filter(c => c.name.toLowerCase().includes(v.toLowerCase()) || c.wa?.includes(v))) }
     function showCustModal(id = null) {
       editingId = id; const c = id ? DB.customers.find(x => x.id === id) : { name: '', wa: '', address: '' };
       showModal(`
-    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Pelanggan</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Pelanggan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="form-group"><label class="form-label">Nama *</label><input type="text" id="cf-name" value="${c.name}"></div>
     <div class="form-group"><label class="form-label">WhatsApp</label><input type="tel" id="cf-wa" value="${c.wa || ''}" placeholder="08xxxxxxxxxx"></div>
     <div class="form-group"><label class="form-label">Alamat</label><textarea id="cf-addr" rows="2">${c.address || ''}</textarea></div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveCust()">${id ? 'Simpan' : 'Tambah'}</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveCust()">${id ? 'Simpan' : 'Tambah'}</button></div>
   `);
     }
     function saveCust() {
@@ -2734,7 +2735,7 @@
         <div class="card-title" style="margin-bottom:16px">Pengaturan Tampilan</div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--gray-100)">
           <div><div style="font-weight:500">Mode Gelap</div><div style="font-size:12px;color:var(--gray-400)">Ubah tampilan menjadi dark mode</div></div>
-          <button class="btn-secondary" onclick="toggleDark()"><i class="fas fa-moon" style="margin-right:6px"></i>Toggle</button>
+          <button class="btn-secondary" onclick="toggleDark()" aria-label="Toggle Dark Mode"><i class="fas fa-moon" style="margin-right:6px"></i>Toggle</button>
         </div>
       </div>
       <div class="card" style="margin-bottom:16px">
@@ -2937,11 +2938,8 @@
     }
 
     // ===================== PWA =====================
-    const swCode = `
-self.addEventListener('install',e=>{e.waitUntil(caches.open('syncro-v1').then(c=>c.addAll(['${location.pathname}'])))});
-self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)))});
-`;
-    const manifestData = { name: 'Syncro OS', short_name: 'Syncro', description: 'Business Operations in Sync.', start_url: '.', display: 'standalone', background_color: '#FFFFFF', theme_color: '#0F6A4A', icons: [{ src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230F6A4A"/><text y=".9em" font-size="80" x="10">S</text></svg>', sizes: '192x192', type: 'image/svg+xml' }] };
+    
+    
 
     // ===================== INIT =====================
     function init() {
@@ -2951,12 +2949,9 @@ self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>
       if (theme) { document.documentElement.setAttribute('data-theme', theme); if (theme === 'dark') document.getElementById('dark-icon').className = 'fas fa-sun'; }
       // Register SW
       if ('serviceWorker' in navigator) {
-        const blob = new Blob([swCode], { type: 'application/javascript' });
-        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => { });
+        navigator.serviceWorker.register('service-worker.js').catch(() => { });
       }
-      // Inject manifest
-      const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
-      document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
+      
       // Auto-login
       if (currentUser) { startApp(); }
     }
