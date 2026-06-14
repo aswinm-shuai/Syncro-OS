@@ -20,33 +20,74 @@
 
     // ===================== FIREBASE BRIDGE =====================
     let isFirebaseReady = false;
-    setTimeout(() => {
-      if (window.db) {
-        isFirebaseReady = true;
-        initFirebaseListeners();
-      }
-    }, 1000);
+    window.unsubscribers = [];
+    setTimeout(() => { if (window.db) isFirebaseReady = true; }, 1000);
 
     function initFirebaseListeners() {
       if (!window.db) return;
+      if (window.unsubscribers) window.unsubscribers.forEach(u => u());
+      window.unsubscribers = [];
+
+
+      // Listen for Transactions
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'transactions'), (snapshot) => {
+        let hasNew = false;
+        snapshot.docChanges().forEach((c) => {
+          if (c.type === 'added' || c.type === 'modified') {
+            const data = c.doc.data();
+            const idx = DB.transactions.findIndex(x => x.id === data.id);
+            if (idx >= 0) { if (JSON.stringify(DB.transactions[idx]) !== JSON.stringify(data)) { DB.transactions[idx] = data; hasNew = true; } }
+            else { DB.transactions.push(data); hasNew = true; }
+          } else if (c.type === 'removed') {
+            DB.transactions = DB.transactions.filter(x => x.id !== c.doc.id); hasNew = true;
+          }
+        });
+        if (hasNew) { localStorage.setItem('syncro_db', JSON.stringify(DB)); if (currentPage === 'dashboard') renderDashboard(); if (currentPage === 'reports') renderReports(); }
+      }));
+      // Listen for Procurement
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'procurement'), (snapshot) => {
+        let hasNew = false;
+        snapshot.docChanges().forEach((c) => {
+          if (c.type === 'added' || c.type === 'modified') {
+            const data = c.doc.data();
+            const idx = DB.procurement.findIndex(x => x.id === data.id);
+            if (idx >= 0) { if (JSON.stringify(DB.procurement[idx]) !== JSON.stringify(data)) { DB.procurement[idx] = data; hasNew = true; } }
+            else { DB.procurement.push(data); hasNew = true; }
+          } else if (c.type === 'removed') {
+            DB.procurement = DB.procurement.filter(x => x.id !== c.doc.id); hasNew = true;
+          }
+        });
+        if (hasNew) { localStorage.setItem('syncro_db', JSON.stringify(DB)); if (currentPage === 'dashboard') renderDashboard(); if (currentPage === 'procurement') renderProcurement(); }
+      }));
+      // Listen for Expenses
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'expenses'), (snapshot) => {
+        let hasNew = false;
+        snapshot.docChanges().forEach((c) => {
+          if (c.type === 'added' || c.type === 'modified') {
+            const data = c.doc.data();
+            const idx = DB.expenses.findIndex(x => x.id === data.id);
+            if (idx >= 0) { if (JSON.stringify(DB.expenses[idx]) !== JSON.stringify(data)) { DB.expenses[idx] = data; hasNew = true; } }
+            else { DB.expenses.push(data); hasNew = true; }
+          } else if (c.type === 'removed') {
+            DB.expenses = DB.expenses.filter(x => x.id !== c.doc.id); hasNew = true;
+          }
+        });
+        if (hasNew) { localStorage.setItem('syncro_db', JSON.stringify(DB)); if (currentPage === 'dashboard') renderDashboard(); if (currentPage === 'expenses') renderExpenses(); }
+      }));
+
 
       // Listen for Orders from Landing Page
-      window.fbOnSnapshot(window.fbCollection(window.db, 'orders'), (snapshot) => {
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'orders'), (snapshot) => {
         let hasNewData = false;
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added' || change.type === 'modified') {
             const data = change.doc.data();
             const idx = DB.orders.findIndex(o => o.id === data.id);
             if (idx >= 0) {
-              // Ignore updates if they match exactly to avoid loops, or just update
-              if (JSON.stringify(DB.orders[idx]) !== JSON.stringify(data)) {
-                DB.orders[idx] = data;
-                hasNewData = true;
-              }
-            } else {
-              DB.orders.push(data);
-              hasNewData = true;
-            }
+              if (JSON.stringify(DB.orders[idx]) !== JSON.stringify(data)) { DB.orders[idx] = data; hasNewData = true; }
+            } else { DB.orders.push(data); hasNewData = true; }
+          } else if (change.type === 'removed') {
+            DB.orders = DB.orders.filter(x => x.id !== change.doc.id); hasNewData = true;
           }
         });
         if (hasNewData) {
@@ -55,72 +96,46 @@
           if (currentPage === 'orders') renderOrders();
           updateBadgeOrders();
         }
-      });
+      }));
 
       // Listen for Customers
-      window.fbOnSnapshot(window.fbCollection(window.db, 'customers'), (snapshot) => {
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'customers'), (snapshot) => {
         let hasNewData = false;
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added' || change.type === 'modified') {
             const data = change.doc.data();
             const idx = DB.customers.findIndex(c => c.id === data.id);
             if (idx >= 0) {
-              if (JSON.stringify(DB.customers[idx]) !== JSON.stringify(data)) {
-                DB.customers[idx] = data;
-                hasNewData = true;
-              }
-            } else {
-              DB.customers.push(data);
-              hasNewData = true;
-            }
+              if (JSON.stringify(DB.customers[idx]) !== JSON.stringify(data)) { DB.customers[idx] = data; hasNewData = true; }
+            } else { DB.customers.push(data); hasNewData = true; }
+          } else if (change.type === 'removed') {
+            DB.customers = DB.customers.filter(x => x.id !== change.doc.id); hasNewData = true;
           }
         });
         if (hasNewData) {
           localStorage.setItem('syncro_db', JSON.stringify(DB));
           if (currentPage === 'customers') renderCustomers();
         }
-      });
+      }));
     }
 
     async function syncToFirebase() {
-      if (!isFirebaseReady || !window.db) return;
-      try {
-        const batch = window.fbWriteBatch(window.db);
-
-        // Sync Products
-        DB.products.forEach(p => {
-          const ref = window.fbDoc(window.db, 'products', p.id);
-          batch.set(ref, p);
-        });
-
-        // Sync Orders
-        DB.orders.forEach(o => {
-          const ref = window.fbDoc(window.db, 'orders', o.id);
-          batch.set(ref, o);
-        });
-
-        // Sync Customers
-        DB.customers.forEach(c => {
-          const ref = window.fbDoc(window.db, 'customers', c.id);
-          batch.set(ref, c);
-        });
-
-        // Sync Settings
-        if (DB.settings) {
-          const settingsRef = window.fbDoc(window.db, 'settings', 'store');
-          batch.set(settingsRef, DB.settings);
-        }
-
-        await batch.commit();
-      } catch (e) {
-        console.error("Firebase Sync Error: ", e);
-      }
+      // Dihapus untuk mencegah Quota Exceeded (write loops).
+      // Sinkronisasi kini dilakukan secara atomik di masing-masing fungsi save.
     }
 
     // ===================== DATA STORE =====================
     function loadDB() {
       const saved = localStorage.getItem('syncro_db');
       if (saved) DB = { ...DB, ...JSON.parse(saved) };
+    }
+
+    function deleteFromFirestore(col, id) {
+      if (window.db) {
+        const batch = window.fbWriteBatch(window.db);
+        batch.delete(window.fbDoc(window.db, col, id));
+        batch.commit().catch(e => console.error("Firebase delete error:", e));
+      }
     }
 
     function saveDB() {
@@ -131,18 +146,19 @@
     function log(action, detail) { auditLog.push({ time: new Date().toISOString(), user: currentUser?.name, action, detail }) }
 
     function initDemoData() {
+      if (localStorage.getItem('syncro_demo_injected')) return;
       if (DB.users.length === 0) {
         DB.users.push({ id: 'u1', name: 'Admin Syncro', email: 'admin@syncro.id', password: btoa('admin123'), role: 'admin', business: 'Warung Syncro' });
         DB.users.push({ id: 'u2', name: 'Staff 1', email: 'staff@syncro.id', password: btoa('staff123'), role: 'staff', business: 'Warung Syncro' });
       }
       if (DB.ingredients.length === 0) {
         DB.ingredients = [
-          { id: 'i1', name: 'Beras', unit: 'gram', price: 0, stock: 5000, minStock: 1000 },
-          { id: 'i2', name: 'Ayam', unit: 'gram', price: 0, stock: 2000, minStock: 500 },
-          { id: 'i3', name: 'Minyak Goreng', unit: 'ml', price: 0, stock: 3000, minStock: 500 },
-          { id: 'i4', name: 'Bumbu Nasi Goreng', unit: 'pcs', price: 0, stock: 20, minStock: 5 },
-          { id: 'i5', name: 'Telur', unit: 'pcs', price: 0, stock: 30, minStock: 10 },
-          { id: 'i6', name: 'Garam', unit: 'gram', price: 0, stock: 1000, minStock: 200 },
+          { id: 'i1', name: 'Beras', unit: 'gram', price: 0, stock: 5000 },
+          { id: 'i2', name: 'Ayam', unit: 'gram', price: 0, stock: 2000 },
+          { id: 'i3', name: 'Minyak Goreng', unit: 'ml', price: 0, stock: 3000 },
+          { id: 'i4', name: 'Bumbu Nasi Goreng', unit: 'pcs', price: 0, stock: 20 },
+          { id: 'i5', name: 'Telur', unit: 'pcs', price: 0, stock: 30 },
+          { id: 'i6', name: 'Garam', unit: 'gram', price: 0, stock: 1000 },
         ];
       }
       if (DB.products.length === 0) {
@@ -161,8 +177,8 @@
         ];
       }
       if (DB.procurement.length === 0) {
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const today = getLocalDateStr();
+        const yesterday = getLocalDateStr(new Date(Date.now() - 86400000));
         DB.procurement = [
           { id: 'pr1', date: yesterday, supplier: 'Pasar Tradisional', items: [{ ingId: 'i1', qty: 10000, unit: 'gram', totalPrice: 90000 }, { ingId: 'i6', qty: 500, unit: 'gram', totalPrice: 5000 }] },
           { id: 'pr2', date: yesterday, supplier: 'Peternakan Maju', items: [{ ingId: 'i2', qty: 3000, unit: 'gram', totalPrice: 120000 }, { ingId: 'i5', qty: 30, unit: 'pcs', totalPrice: 45000 }] },
@@ -171,7 +187,7 @@
         updateIngredientPrices();
       }
       if (DB.transactions.length === 0) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateStr();
         DB.transactions = [
           { id: 't1', date: today, items: [{ productId: 'p1', qty: 3, price: 18000 }, { productId: 'p3', qty: 3, price: 5000 }], total: 69000, status: 'lunas', source: 'kasir' },
           { id: 't2', date: today, items: [{ productId: 'p2', qty: 2, price: 25000 }, { productId: 'p4', qty: 2, price: 5000 }], total: 60000, status: 'lunas', source: 'kasir' },
@@ -179,7 +195,7 @@
         ];
       }
       if (DB.expenses.length === 0) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateStr();
         DB.expenses = [
           { id: 'e1', date: today, category: 'Listrik', desc: 'Tagihan listrik bulan ini', amount: 300000 },
           { id: 'e2', date: today, category: 'Gaji', desc: 'Gaji karyawan', amount: 1500000 },
@@ -197,6 +213,7 @@
         ];
       }
       saveDB();
+      localStorage.setItem('syncro_demo_injected', 'true');
     }
 
     // ===================== AUTH =====================
@@ -260,6 +277,8 @@
       }
     }
     async function doLogout() {
+      if (window.unsubscribers) window.unsubscribers.forEach(u => u());
+      window.unsubscribers = [];
       if (!confirm('Yakin ingin logout?')) return;
       try { await window.fbSignOut(window.auth); } catch(e) {}
       localStorage.removeItem('syncro_session');
@@ -272,7 +291,8 @@
       document.getElementById('sidebar-name').textContent = currentUser.name;
       document.getElementById('sidebar-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'Staff';
       document.getElementById('sidebar-avatar').textContent = currentUser.name[0].toUpperCase();
-      updateBadgeOrders(); updateBadgeStock();
+      updateBadgeOrders(); 
+      initFirebaseListeners();
       navigate('dashboard');
     }
 
@@ -331,13 +351,14 @@
       localStorage.removeItem('syncro_session');
       loadDB();
       initDemoData();
+      cleanupGhostTransactions();
       const theme = localStorage.getItem('syncro_theme');
       if (theme) { document.documentElement.setAttribute('data-theme', theme); if (theme === 'dark') document.getElementById('dark-icon').className = 'fas fa-sun'; }
       
       // Register SW
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js');
+          navigator.serviceWorker.register('service-worker.js');
         });
       }
       
@@ -374,42 +395,230 @@
     }
     document.addEventListener('DOMContentLoaded', init);
 
+    // ===================== BUSINESS LOGIC =====================
+    function getLocalDateStr(dateObj = new Date()) {
+      const offset = dateObj.getTimezoneOffset() * 60000;
+      const localDate = new Date(dateObj.getTime() - offset);
+      return localDate.toISOString().split('T')[0];
+    }
+
+    function calculateBusinessMetrics(txs, exps) {
+      const totalRevenue = txs.reduce((sum, t) => sum + (t.status !== 'cancelled' ? t.total : 0), 0);
+      const totalTransactions = txs.filter(t => t.status !== 'cancelled').length;
+      
+      let totalHPP = 0;
+      txs.forEach(t => {
+        if (t.status === 'cancelled') return;
+        t.items.forEach(it => {
+          if (it.hpp !== undefined) {
+             totalHPP += it.hpp * it.qty;
+          } else {
+             totalHPP += calcHPP(it.productId) * it.qty;
+          }
+        });
+      });
+
+      const grossProfit = totalRevenue - totalHPP;
+      const totalExpenses = exps.reduce((sum, e) => sum + e.amount, 0);
+      const netProfit = grossProfit - totalExpenses;
+      const margin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 100) : 0;
+
+      return { totalRevenue, totalTransactions, totalHPP, grossProfit, totalExpenses, netProfit, margin };
+    }
+
+    function getValidOrders() {
+      return DB.orders;
+    }
+
+    function getValidOnlineTransactions() {
+      return DB.transactions.filter(t => {
+        if (t.source === 'online' || t.orderId) {
+          if (!t.orderId) return false; // invalid online tx
+          const validOrders = getValidOrders();
+          return validOrders.some(o => o.id === t.orderId);
+        }
+        return true; // kasir, pos, dll
+      });
+    }
+
+    function cleanupGhostTransactions() {
+      const validTx = getValidOnlineTransactions();
+      if (validTx.length !== DB.transactions.length) {
+        console.warn(`Cleanup: Removed ${DB.transactions.length - validTx.length} ghost transactions from local calculation.`);
+        DB.transactions = validTx;
+      }
+    }
+
+    let currentFilters = {
+       dashboard: { type: 'tanggal', value: '' },
+       orders: { type: 'semua', value: '' },
+       reports: { type: 'bulan', value: '' }
+    };
+
+    function filterDataByDate(dataArray, filterState) {
+      if (!dataArray || !dataArray.length || !filterState || filterState.type === 'semua') return dataArray;
+      
+      return dataArray.filter(item => {
+         let d = '';
+         if(item.date) { d = item.date.includes('T') ? getLocalDateStr(new Date(item.date)) : item.date; }
+         if (!d) return false;
+
+         if (filterState.type === 'tanggal') {
+           return d === filterState.value;
+         } else if (filterState.type === 'hari_seminggu') {
+           const day = new Date(d).getDay();
+           return day.toString() === filterState.value.toString();
+         } else if (filterState.type === 'bulan') {
+           return d.startsWith(filterState.value);
+         } else if (filterState.type === 'tahun') {
+           return d.startsWith(filterState.value);
+         } else if (filterState.type === 'custom') {
+           return d >= filterState.value.start && d <= filterState.value.end;
+         }
+         return true;
+      });
+    }
+
+    function renderFilterUI(pageName) {
+      const f = currentFilters[pageName];
+      // Initialize defaults if empty
+      if (!f.value && f.type !== 'semua') {
+         const today = getLocalDateStr();
+         if (f.type === 'tanggal') f.value = today;
+         if (f.type === 'hari_seminggu') f.value = new Date().getDay().toString();
+         if (f.type === 'bulan') f.value = today.substring(0,7);
+         if (f.type === 'tahun') f.value = today.substring(0,4);
+         if (f.type === 'custom') f.value = { start: today, end: today };
+      }
+
+      let valueInput = '';
+      if (f.type === 'tanggal') {
+         valueInput = `<input type="date" id="filter-val-${pageName}" class="form-control" value="${f.value}" onchange="updateFilter('${pageName}')" style="width:auto; display:inline-block">`;
+      } else if (f.type === 'hari_seminggu') {
+         valueInput = `<select id="filter-val-${pageName}" class="form-control" onchange="updateFilter('${pageName}')" style="width:auto; display:inline-block">
+            <option value="1" ${f.value=='1'?'selected':''}>Senin</option>
+            <option value="2" ${f.value=='2'?'selected':''}>Selasa</option>
+            <option value="3" ${f.value=='3'?'selected':''}>Rabu</option>
+            <option value="4" ${f.value=='4'?'selected':''}>Kamis</option>
+            <option value="5" ${f.value=='5'?'selected':''}>Jumat</option>
+            <option value="6" ${f.value=='6'?'selected':''}>Sabtu</option>
+            <option value="0" ${f.value=='0'?'selected':''}>Minggu</option>
+         </select>`;
+      } else if (f.type === 'bulan') {
+         valueInput = `<input type="month" id="filter-val-${pageName}" class="form-control" value="${f.value}" onchange="updateFilter('${pageName}')" style="width:auto; display:inline-block">`;
+      } else if (f.type === 'tahun') {
+         valueInput = `<input type="number" id="filter-val-${pageName}" class="form-control" value="${f.value}" placeholder="2026" onchange="updateFilter('${pageName}')" style="width:80px; display:inline-block">`;
+      } else if (f.type === 'custom') {
+         valueInput = `<input type="date" id="filter-val-start-${pageName}" class="form-control" value="${f.value.start||''}" onchange="updateFilter('${pageName}')" style="width:auto; display:inline-block"> <span style="margin:0 5px">-</span> 
+                       <input type="date" id="filter-val-end-${pageName}" class="form-control" value="${f.value.end||''}" onchange="updateFilter('${pageName}')" style="width:auto; display:inline-block">`;
+      }
+
+      return `
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px; flex-wrap:wrap; background:var(--white); padding:10px 15px; border-radius:var(--radius); border:1px solid var(--gray-200);">
+          <i class="fas fa-filter" style="color:var(--gray-400)"></i>
+          <span style="font-size:13px; font-weight:500">Filter:</span>
+          <select id="filter-type-${pageName}" class="form-control" onchange="changeFilterType('${pageName}')" style="width:auto; display:inline-block">
+             <option value="semua" ${f.type==='semua'?'selected':''}>Semua Waktu</option>
+             <option value="tanggal" ${f.type==='tanggal'?'selected':''}>Hari/Tanggal</option>
+             <option value="hari_seminggu" ${f.type==='hari_seminggu'?'selected':''}>Hari dalam Seminggu</option>
+             <option value="bulan" ${f.type==='bulan'?'selected':''}>Bulan</option>
+             <option value="tahun" ${f.type==='tahun'?'selected':''}>Tahun</option>
+             <option value="custom" ${f.type==='custom'?'selected':''}>Rentang Tanggal</option>
+          </select>
+          ${f.type !== 'semua' ? valueInput : ''}
+        </div>
+      `;
+    }
+
+    window.changeFilterType = function(page) {
+       const type = document.getElementById('filter-type-' + page).value;
+       const today = getLocalDateStr();
+       let val = '';
+       if (type === 'tanggal') val = today;
+       if (type === 'hari_seminggu') val = new Date().getDay().toString();
+       if (type === 'bulan') val = today.substring(0,7);
+       if (type === 'tahun') val = today.substring(0,4);
+       if (type === 'custom') val = { start: today, end: today };
+       currentFilters[page] = { type, value: val };
+       if(page === 'dashboard') renderDashboard();
+       if(page === 'orders') renderOrders();
+       if(page === 'reports') renderReports();
+    }
+
+    window.updateFilter = function(page) {
+       const f = currentFilters[page];
+       if (f.type === 'custom') {
+          f.value = { 
+            start: document.getElementById('filter-val-start-'+page).value,
+            end: document.getElementById('filter-val-end-'+page).value
+          };
+       } else if (f.type !== 'semua') {
+          f.value = document.getElementById('filter-val-'+page).value;
+       }
+       if(page === 'dashboard') renderDashboard();
+       if(page === 'orders') renderOrders();
+       if(page === 'reports') renderReports();
+    }
+
     // ===================== DASHBOARD =====================
     function renderDashboard() {
-      const today = new Date().toISOString().split('T')[0];
-      const todayTx = DB.transactions.filter(t => t.date === today);
-      const todayOrders = DB.orders.filter(o => o.date.startsWith(today));
-      const totalOmzet = todayTx.reduce((s, t) => s + t.total, 0) + todayOrders.filter(o => o.paymentStatus === 'lunas').reduce((s, o) => s + o.total, 0);
-      const totalOrders = todayTx.length + todayOrders.length;
-      const expenses = DB.expenses.filter(e => e.date === today).reduce((s, e) => s + e.amount, 0);
-      const hpp = calcTotalHPP(todayTx);
-      const grossProfit = totalOmzet - hpp;
-      const netProfit = grossProfit - expenses;
+      const today = getLocalDateStr();
+      const validTxs = getValidOnlineTransactions();
+      
+      const filteredTx = filterDataByDate(validTxs, currentFilters['dashboard']);
+      const filteredExps = filterDataByDate(DB.expenses, currentFilters['dashboard']);
+      
+      // Ambil metrik dari fungsi tunggal (berdasarkan filter)
+      const metrics = calculateBusinessMetrics(filteredTx, filteredExps);
+      
+      const filteredOrders = filterDataByDate(DB.orders, currentFilters['dashboard']);
+      const totalOrdersFiltered = filteredOrders.length;
+      const pendingOrdersCount = filteredOrders.filter(o => o.status === 'pending').length;
 
-      // Weekly data
+      // Weekly data (Trend chart 7 hari terakhir - tetap fixed)
       const weekSales = []; const weekLabels = [];
       for (let i = 6; i >= 0; i--) {
-        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-        const s = DB.transactions.filter(t => t.date === d).reduce((a, t) => a + t.total, 0);
-        weekSales.push(s); weekLabels.push(d.split('-')[2] + '/' + d.split('-')[1]);
+        const d = getLocalDateStr(new Date(Date.now() - i * 86400000));
+        const dayMetrics = calculateBusinessMetrics(validTxs.filter(t => t.date === d), []);
+        weekSales.push(dayMetrics.totalRevenue); weekLabels.push(d.split('-')[2] + '/' + d.split('-')[1]);
       }
       const maxSale = Math.max(...weekSales, 1);
 
-      // Top products
+      // Top products (berdasarkan filter)
       const prodCount = {};
-      DB.transactions.forEach(t => t.items.forEach(it => { prodCount[it.productId] = (prodCount[it.productId] || 0) + it.qty }));
-      const topProds = Object.entries(prodCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, qty]) => ({ prod: DB.products.find(p => p.id === id), qty })).filter(x => x.prod);
+      filteredTx.forEach(t => t.items.forEach(it => { 
+        if (DB.products.some(p => p.id === it.productId)) {
+          prodCount[it.productId] = (prodCount[it.productId] || 0) + it.qty;
+        }
+      }));
+      const topProds = Object.entries(prodCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, qty]) => ({ prod: DB.products.find(p => p.id === id), qty }));
 
       // Low stock
-      const lowStock = DB.ingredients.filter(i => i.stock <= i.minStock);
+      const lowStock = [];
+
+      // Audit Logs
+      console.log('--- DASHBOARD AUDIT ---');
+      console.log('Today Local Date:', today);
+      console.log('Dashboard Filter:', currentFilters['dashboard']);
+      console.log('Filtered Transactions:', filteredTx.length);
+      console.log('Filtered Orders:', filteredOrders.length);
+      console.log('Filtered Expenses:', filteredExps.length);
+      console.log('Current Page:', currentPage);
+
+      let labelOmzet = currentFilters['dashboard'].type === 'semua' ? 'Total Omzet' : 'Omzet Filtered';
+      let labelPesanan = currentFilters['dashboard'].type === 'semua' ? 'Total Pesanan' : 'Pesanan Filtered';
+      if (currentFilters['dashboard'].type === 'tanggal' && currentFilters['dashboard'].value === today) {
+          labelOmzet = 'Omzet Hari Ini';
+          labelPesanan = 'Pesanan Hari Ini';
+      }
 
       document.getElementById('main-content').innerHTML = `
-    ${lowStock.length ? `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i><div><strong>Stok Menipis!</strong> ${lowStock.map(i => `${i.name} (${i.stock} ${i.unit})`).join(', ')}</div></div>` : ''}
+    ${renderFilterUI('dashboard')}
     <div class="stat-grid">
-      <div class="stat-card emerald"><div class="stat-label">Omzet Hari Ini</div><div class="stat-value">${fmt(totalOmzet)}</div><div class="stat-sub"><i class="fas fa-arrow-up" style="color:var(--success)"></i> Dari ${totalOrders} transaksi</div><i class="fas fa-coins stat-icon"></i></div>
-      <div class="stat-card gold"><div class="stat-label">Gross Profit</div><div class="stat-value">${fmt(grossProfit)}</div><div class="stat-sub">Margin ${totalOmzet ? Math.round(grossProfit / totalOmzet * 100) : 0}%</div><i class="fas fa-chart-line stat-icon"></i></div>
-      <div class="stat-card blue"><div class="stat-label">Net Profit</div><div class="stat-value">${fmt(netProfit)}</div><div class="stat-sub">Setelah biaya ops ${fmt(expenses)}</div><i class="fas fa-piggy-bank stat-icon"></i></div>
-      <div class="stat-card danger"><div class="stat-label">Total Pesanan</div><div class="stat-value">${totalOrders}</div><div class="stat-sub">${todayOrders.filter(o => o.status === 'pending').length} menunggu konfirmasi</div><i class="fas fa-shopping-bag stat-icon"></i></div>
+      <div class="stat-card emerald"><div class="stat-label">${labelOmzet}</div><div class="stat-value">${fmt(metrics.totalRevenue)}</div><div class="stat-sub"><i class="fas fa-arrow-up" style="color:var(--success)"></i> Dari ${metrics.totalTransactions} transaksi</div><i class="fas fa-coins stat-icon"></i></div>
+      <div class="stat-card gold"><div class="stat-label">Gross Profit</div><div class="stat-value">${fmt(metrics.grossProfit)}</div><div class="stat-sub">Margin ${metrics.margin}%</div><i class="fas fa-chart-line stat-icon"></i></div>
+      <div class="stat-card blue"><div class="stat-label">Net Profit</div><div class="stat-value">${fmt(metrics.netProfit)}</div><div class="stat-sub">Setelah biaya ops ${fmt(metrics.totalExpenses)}</div><i class="fas fa-piggy-bank stat-icon"></i></div>
+      <div class="stat-card danger"><div class="stat-label">${labelPesanan}</div><div class="stat-value">${totalOrdersFiltered}</div><div class="stat-sub">${pendingOrdersCount} menunggu konfirmasi</div><i class="fas fa-shopping-bag stat-icon"></i></div>
     </div>
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px" class="responsive-grid">
       <div class="card">
@@ -426,7 +635,7 @@
         <div class="card-header"><div class="card-title">Produk Terlaris</div></div>
         ${topProds.length ? topProds.map((x, i) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100)">
           <div style="width:24px;height:24px;background:var(--emerald-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--emerald);flex-shrink:0">${i + 1}</div>
-          <div style="flex:1;font-size:13px;font-weight:500">${x.prod.name}</div>
+          <div style="flex:1;font-size:13px;font-weight:500">${x.prod ? x.prod.name : (x.productName || 'Produk Terhapus')}</div>
           <div style="font-size:13px;color:var(--gray-400)">${x.qty}x</div>
         </div>`).join('') : `<div class="empty-state" style="padding:20px"><i class="fas fa-chart-bar"></i><p>Belum ada data</p></div>`}
       </div>
@@ -444,9 +653,9 @@
         ${DB.ingredients.slice(0, 5).map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--gray-100)">
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
             <span style="font-size:13px;font-weight:500">${i.name}</span>
-            <span style="font-size:12px;color:${i.stock <= i.minStock ? 'var(--danger)' : 'var(--gray-400)'}">${i.stock} ${i.unit}</span>
+            <span style="font-size:12px;color:var(--gray-400)">${i.stock} ${i.unit}</span>
           </div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, i.stock / Math.max(i.minStock * 3, 1) * 100)}%;background:${i.stock <= i.minStock ? 'var(--danger)' : 'var(--emerald)'}"></div></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--emerald)"></div></div>
         </div>`).join('')}
       </div>
     </div>
@@ -600,6 +809,8 @@
 
 
     // ===================== PRODUCTS =====================
+
+
     function renderProducts() {
       const cats = [...new Set(DB.products.map(p => p.category))];
       document.getElementById('main-content').innerHTML = `
@@ -650,11 +861,11 @@
       editingId = id;
       const p = id ? DB.products.find(x => x.id === id) : { name: '', price: '', desc: '', category: 'Makanan', available: true, emoji: '🍽️', imageUrl: '' };
       showModal(`
-    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Produk</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Produk</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="form-group"><label class="form-label">Nama Produk *</label><input type="text" id="pf-name" value="${p.name}"></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Harga Jual *</label><div class="input-group"><span class="input-addon">Rp</span><input type="number" id="pf-price" value="${p.price}" style="border-radius:0 var(--radius) var(--radius) 0;border-left:none"></div></div>
-      <div class="form-group"><label class="form-label">Kategori</label><select id="pf-cat"><option ${p.category === 'Makanan' ? 'selected' : ''}>Makanan</option><option ${p.category === 'Minuman' ? 'selected' : ''}>Minuman</option><option ${p.category === 'Snack' ? 'selected' : ''}>Snack</option><option ${p.category === 'Lainnya' ? 'selected' : ''}>Lainnya</option></select></div>
+      <div class="form-group"><label class="form-label">Kategori</label><select id="pf-cat" aria-label="Pilihan"><option ${p.category === 'Makanan' ? 'selected' : ''}>Makanan</option><option ${p.category === 'Minuman' ? 'selected' : ''}>Minuman</option><option ${p.category === 'Snack' ? 'selected' : ''}>Snack</option><option ${p.category === 'Lainnya' ? 'selected' : ''}>Lainnya</option></select></div>
     </div>
     <div class="form-group"><label class="form-label">Deskripsi</label><textarea id="pf-desc" rows="2">${p.desc || ''}</textarea></div>
     <div class="grid-2">
@@ -667,7 +878,7 @@
       <div class="form-group"><label class="form-label">Emoji (jika tanpa foto)</label><input type="text" id="pf-emoji" value="${p.emoji || '🍽️'}" style="font-size:20px"></div>
     </div>
     <div class="form-group"><label class="form-check"><input type="checkbox" id="pf-avail" ${p.available ? 'checked' : ''}><span>Produk tersedia (tampil di menu)</span></label></div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveProduct()">${id ? 'Simpan' : 'Tambah'}</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveProduct()">${id ? 'Simpan' : 'Tambah'}</button></div>
   `);
     }
 
@@ -694,23 +905,32 @@
       const name = document.getElementById('pf-name').value.trim();
       const price = parseInt(document.getElementById('pf-price').value) || 0;
       if (!name || !price) { toast('Nama dan harga wajib diisi', 'warning'); return }
+      let newP;
       if (editingId) {
-        const p = DB.products.find(x => x.id === editingId);
-        Object.assign(p, { name, price, desc: document.getElementById('pf-desc').value, category: document.getElementById('pf-cat').value, available: document.getElementById('pf-avail').checked, imageUrl: document.getElementById('pf-img').value, emoji: document.getElementById('pf-emoji').value });
+        newP = DB.products.find(x => x.id === editingId);
+        Object.assign(newP, { name, price, desc: document.getElementById('pf-desc').value, category: document.getElementById('pf-cat').value, available: document.getElementById('pf-avail').checked, imageUrl: document.getElementById('pf-img').value, emoji: document.getElementById('pf-emoji').value });
         toast('Produk diperbarui', 'success');
       } else {
-        DB.products.push({ id: 'p' + Date.now(), name, price, desc: document.getElementById('pf-desc').value, category: document.getElementById('pf-cat').value, available: document.getElementById('pf-avail').checked, imageUrl: document.getElementById('pf-img').value, emoji: document.getElementById('pf-emoji').value, hpp: 0 });
+        newP = { id: 'p' + Date.now(), name, price, desc: document.getElementById('pf-desc').value, category: document.getElementById('pf-cat').value, available: document.getElementById('pf-avail').checked, imageUrl: document.getElementById('pf-img').value, emoji: document.getElementById('pf-emoji').value, hpp: 0 };
+        DB.products.push(newP);
         toast('Produk ditambahkan', 'success');
       }
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'products', newP.id), newP).catch(e => console.error(e));
       saveDB(); closeModal(); renderProducts();
     }
     function toggleProductAvail(id) {
       const p = DB.products.find(x => x.id === id);
-      if (p) { p.available = !p.available; saveDB(); renderProducts(); }
+      if (p) { 
+        p.available = !p.available; 
+        if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'products', id), p).catch(e => console.error(e));
+        saveDB(); renderProducts(); 
+      }
     }
     function deleteProduct(id) {
       if (!confirm('Hapus produk ini?')) return;
-      DB.products = DB.products.filter(p => p.id !== id); saveDB(); renderProducts(); toast('Produk dihapus', 'success');
+      DB.products = DB.products.filter(p => p.id !== id); 
+      deleteFromFirestore('products', id);
+      saveDB(); renderProducts(); toast('Produk dihapus', 'success');
     }
 
 
@@ -721,7 +941,7 @@
       <div class="search-bar" style="max-width:300px"><i class="fas fa-search"></i><input type="text" placeholder="Cari bahan..." oninput="filterIngredients(this.value)"></div>
       <button class="btn-primary" onclick="showIngModal()"><i class="fas fa-plus" style="margin-right:6px"></i>Tambah Bahan</button>
     </div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Harga/Satuan</th><th>Stok</th><th>Stok Min</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="ing-tbody"></tbody></table></div></div>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok</th><th>Aksi</th></tr></thead><tbody id="ing-tbody"></tbody></table></div></div>
   `;
       renderIngTable(DB.ingredients);
     }
@@ -731,61 +951,57 @@
       tb.innerHTML = ings.map(i => `<tr>
     <td><strong>${i.name}</strong></td>
     <td>${i.unit}</td>
-    <td>${fmtSmall(i.price)}/${i.unit}</td>
     <td><strong>${i.stock}</strong> ${i.unit}</td>
-    <td>${i.minStock} ${i.unit}</td>
-    <td><span class="badge ${i.stock <= i.minStock ? 'badge-danger' : 'badge-success'}">${i.stock <= i.minStock ? 'Menipis' : 'Normal'}</span></td>
-    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showIngModal('${i.id}')"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteIng('${i.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
+    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showIngModal('${i.id}')" aria-label="Edit"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteIng('${i.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
   </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada bahan</td></tr>`;
     }
     function filterIngredients(v) { renderIngTable(DB.ingredients.filter(i => i.name.toLowerCase().includes(v.toLowerCase()))) }
     function showIngModal(id = null) {
       editingId = id;
-      const i = id ? DB.ingredients.find(x => x.id === id) : { name: '', unit: 'gram', price: 0, stock: 0, minStock: 0 };
+      const i = id ? DB.ingredients.find(x => x.id === id) : { name: '', unit: 'gram', price: 0, stock: 0 };
       showModal(`
-    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Bahan</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Bahan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="form-group"><label class="form-label">Nama Bahan *</label><input type="text" id="if-name" value="${i.name}"></div>
     <div class="grid-2">
-      <div class="form-group"><label class="form-label">Satuan *</label><select id="if-unit"><option ${i.unit === 'gram' ? 'selected' : ''}>gram</option><option ${i.unit === 'kg' ? 'selected' : ''}>kg</option><option ${i.unit === 'ml' ? 'selected' : ''}>ml</option><option ${i.unit === 'liter' ? 'selected' : ''}>liter</option><option ${i.unit === 'pcs' ? 'selected' : ''}>pcs</option><option ${i.unit === 'sdm' ? 'selected' : ''}>sdm</option></select></div>
-      <div class="form-group"><label class="form-label">Harga/Satuan (Rp)</label><input type="number" id="if-price" value="${i.price}"></div>
+      <div class="form-group"><label class="form-label">Satuan *</label><select id="if-unit" aria-label="Pilihan"><option ${i.unit === 'gram' ? 'selected' : ''}>gram</option><option ${i.unit === 'kg' ? 'selected' : ''}>kg</option><option ${i.unit === 'ml' ? 'selected' : ''}>ml</option><option ${i.unit === 'liter' ? 'selected' : ''}>liter</option><option ${i.unit === 'pcs' ? 'selected' : ''}>pcs</option><option ${i.unit === 'sdm' ? 'selected' : ''}>sdm</option></select></div>
+      
     </div>
-    <div class="grid-2">
-      <div class="form-group"><label class="form-label">Stok Saat Ini</label><input type="number" id="if-stock" value="${i.stock}"></div>
-      <div class="form-group"><label class="form-label">Stok Minimum</label><input type="number" id="if-minstock" value="${i.minStock}"></div>
-    </div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveIng()">${id ? 'Simpan' : 'Tambah'}</button></div>
+    <div class="form-group"><label class="form-label">Stok Awal</label><input type="number" id="if-stock" value="${i.stock}"></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveIng()">${id ? 'Simpan' : 'Tambah'}</button></div>
   `);
     }
     function saveIng() {
       const name = document.getElementById('if-name').value.trim();
       if (!name) { toast('Nama bahan wajib diisi', 'warning'); return }
-      const data = { name, unit: document.getElementById('if-unit').value, price: parseFloat(document.getElementById('if-price').value) || 0, stock: parseFloat(document.getElementById('if-stock').value) || 0, minStock: parseFloat(document.getElementById('if-minstock').value) || 0 };
+      const data = { name, unit: document.getElementById('if-unit').value, stock: parseFloat(document.getElementById('if-stock').value) || 0 };
       if (editingId) { Object.assign(DB.ingredients.find(x => x.id === editingId), data); toast('Bahan diperbarui', 'success') }
       else { DB.ingredients.push({ id: 'i' + Date.now(), ...data }); toast('Bahan ditambahkan', 'success') }
-      saveDB(); closeModal(); renderIngredients(); updateBadgeStock();
+      saveDB(); closeModal(); renderIngredients(); 
     }
     function deleteIng(id) {
       if (!confirm('Hapus bahan ini?')) return;
-      DB.ingredients = DB.ingredients.filter(i => i.id !== id); saveDB(); renderIngredients();
+      DB.ingredients = DB.ingredients.filter(i => i.id !== id); 
+      deleteFromFirestore('ingredients', id);
+      saveDB(); renderIngredients();
     }
 
     // ===================== INVENTORY =====================
     function renderInventory() {
       const low = DB.ingredients.filter(i => i.stock <= i.minStock);
       document.getElementById('main-content').innerHTML = `
-    ${low.length ? `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i><div><strong>Stok Menipis!</strong><br>${low.map(i => `<span class="badge badge-danger" style="margin-right:4px">${i.name}: ${i.stock} ${i.unit}</span>`).join('')}</div></div>` : '<div class="alert alert-success"><i class="fas fa-check-circle"></i><div>Semua stok dalam kondisi aman.</div></div>'}
+    
     <div class="card">
       <div class="card-header"><div class="card-title">Stok Bahan Baku</div><button class="btn-secondary btn-sm" onclick="navigate('procurement')"><i class="fas fa-plus" style="margin-right:4px"></i>Tambah Stok</button></div>
-      <div class="table-wrap"><table><thead><tr><th>Bahan</th><th>Satuan</th><th>Stok Saat Ini</th><th>Stok Min</th><th>Harga/Satuan</th><th>Status</th></tr></thead><tbody>
+      <div class="table-wrap"><table><thead><tr><th>Bahan</th><th>Satuan</th><th>Stok Saat Ini</th><th>Harga/Satuan (HPP)</th></tr></thead><tbody>
         ${DB.ingredients.map(i => {
-        const pct = Math.min(100, i.minStock > 0 ? i.stock / Math.max(i.minStock * 3, 1) * 100 : 100);
+        const pct = 100;
         return `<tr>
             <td><strong>${i.name}</strong></td>
             <td>${i.unit}</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px">
                 <strong>${i.stock}</strong>
-                <div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${pct}%;background:${i.stock <= i.minStock ? 'var(--danger)' : 'var(--emerald)'}"></div></div>
+                <div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:100%;background:var(--emerald)"></div></div>
               </div>
             </td>
             <td>${i.minStock}</td>
@@ -832,11 +1048,11 @@
     function showRecipeModal(productId = null) {
       const prods = DB.products;
       showModal(`
-    <div class="modal-header"><div class="modal-title">Buat / Edit Resep</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
-    <div class="form-group"><label class="form-label">Produk *</label><select id="rp-product" onchange="loadRecipeItems(this.value)">${prods.map(p => `<option value="${p.id}" ${p.id === productId ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div>
+    <div class="modal-header"><div class="modal-title">Buat / Edit Resep</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
+    <div class="form-group"><label class="form-label">Produk *</label><select id="rp-product" onchange="loadRecipeItems(this.value)" aria-label="Pilihan">${prods.map(p => `<option value="${p.id}" ${p.id === productId ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div>
     <div id="recipe-items-form" style="margin-bottom:16px"></div>
     <button class="btn-secondary btn-sm" onclick="addRecipeItemRow()" style="margin-bottom:16px"><i class="fas fa-plus" style="margin-right:4px"></i>Tambah Bahan</button>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveRecipe()">Simpan Resep</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveRecipe()">Simpan Resep</button></div>
   `);
       loadRecipeItems(productId || prods[0]?.id);
     }
@@ -851,7 +1067,7 @@
       const f = document.getElementById('recipe-items-form');
       if (!f) return;
       f.innerHTML = recipeRows.map((row, i) => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-    <select style="flex:2" onchange="recipeRows[${i}].ingId=this.value">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === row.ingId ? 'selected' : ''}>${ing.name} (${ing.unit})</option>`).join('')}</select>
+    <select style="flex:2" onchange="recipeRows[${i}].ingId=this.value" aria-label="Pilihan">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === row.ingId ? 'selected' : ''}>${ing.name} (${ing.unit})</option>`).join('')}</select>
     <input type="number" style="width:90px" placeholder="Qty" value="${row.qty}" oninput="recipeRows[${i}].qty=parseFloat(this.value)||0">
     <button class="btn-icon" onclick="recipeRows.splice(${i},1);renderRecipeRows()" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
   </div>`).join('') || '<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:12px">Belum ada bahan. Klik "Tambah Bahan".</div>';
@@ -944,10 +1160,40 @@
     function doCheckoutPOS() {
       const items = Object.entries(posCart);
       if (!items.length) { toast('Keranjang kosong', 'warning'); return }
-      const txItems = items.map(([id, qty]) => { const p = DB.products.find(x => x.id === id); return { productId: id, qty, price: p.price } });
+
+      const orderItems = items.map(([id, qty]) => {
+         const p = DB.products.find(x => x.id === id);
+         return { productId: id, qty, price: p.price };
+      });
+
+      const txItems = items.map(([id, qty]) => { 
+        const p = DB.products.find(x => x.id === id); 
+        return { productId: id, qty, price: p.price, productName: p.name, hpp: calcHPP(id) } 
+      });
+
       const total = txItems.reduce((s, i) => s + i.price * i.qty, 0);
-      const tx = { id: 't' + Date.now(), date: new Date().toISOString().split('T')[0], items: txItems, total, status: 'lunas', source: 'kasir', customer: document.getElementById('pos-customer')?.value || '' };
+      const customerName = document.getElementById('pos-customer')?.value || 'Pelanggan POS';
+      const dateStr = getLocalDateStr();
+
+      const orderId = 'o' + Date.now();
+      const order = {
+         id: orderId,
+         date: new Date().toISOString(), // Use full ISO for order date to allow time tracking
+         customerName: customerName,
+         items: orderItems,
+         total: total,
+         payment: 'kasir',
+         status: 'selesai',
+         paymentStatus: 'lunas',
+         source: 'pos'
+      };
+      DB.orders.push(order);
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'orders', order.id), order).catch(e => console.error(e));
+
+      const tx = { id: 't' + Date.now() + Math.floor(Math.random()*100), orderId: orderId, date: dateStr, items: txItems, total, status: 'lunas', source: 'pos', customer: customerName };
       DB.transactions.push(tx);
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'transactions', tx.id), tx).catch(e => console.error(e));
+      
       deductStock(txItems);
       saveDB(); clearPOSCart();
       toast(`Transaksi Rp${total.toLocaleString()} berhasil dicatat!`, 'success');
@@ -962,13 +1208,30 @@
           if (ing) { ing.stock = Math.max(0, ing.stock - ri.qty * it.qty); }
         });
       });
-      updateBadgeStock();
+      
     }
 
     // ===================== ORDERS =====================
+    async function refreshOrders() {
+      if(!window.db) return;
+      try {
+        const snap = await window.fbGetDocs(window.fbCollection(window.db, 'orders'));
+        const newOrders = [];
+        snap.forEach(d => newOrders.push(d.data()));
+        DB.orders = newOrders;
+        saveDB();
+        renderOrders();
+        toast('Pesanan disinkronkan', 'success');
+      } catch(e) { toast('Gagal sync pesanan', 'danger') }
+    }
+
     function renderOrders() {
       const pending = DB.orders.filter(o => o.status === 'pending').length;
       document.getElementById('main-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="flex:1">${renderFilterUI('orders')}</div>
+      <button class="btn-secondary btn-sm" onclick="refreshOrders()" style="margin-left:10px;height:36px;white-space:nowrap"><i class="fas fa-sync-alt" style="margin-right:6px"></i>Refresh</button>
+    </div>
     ${pending ? `<div class="alert alert-warning"><i class="fas fa-bell"></i><div><strong>${pending} pesanan baru</strong> menunggu konfirmasi Anda</div></div>` : ''}
     <div class="tabs">
       <div class="tab active" onclick="switchOrderTab('semua',this)">Semua</div>
@@ -986,61 +1249,172 @@
       renderOrderList(status);
     }
     function renderOrderList(status) {
-      const orders = status === 'semua' ? DB.orders : DB.orders.filter(o => o.status === status);
+      const filteredByDate = filterDataByDate(DB.orders, currentFilters['orders']);
+      const orders = status === 'semua' ? filteredByDate : filteredByDate.filter(o => o.status === status);
       const el = document.getElementById('orders-list');
       if (!orders.length) { el.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>Tidak ada pesanan</p></div>'; return }
       el.innerHTML = orders.slice().reverse().map(o => {
         const prod_names = o.items.map(it => { const p = DB.products.find(x => x.id === it.productId); return p ? `${p.name}x${it.qty}` : '' }).filter(Boolean).join(', ');
         return `<div class="card" style="margin-bottom:12px">
       <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:10px">
-        <div><div style="font-weight:600;font-size:15px">${o.customerName}</div><div style="font-size:12px;color:var(--gray-400)">${new Date(o.date).toLocaleString('id-ID')} · ${o.payment || 'transfer'}</div></div>
+        <div><div style="font-weight:600;font-size:15px">${o.customerName}</div><div style="font-size:12px;color:var(--gray-400)">${new Date(o.date).toLocaleString('id-ID')} · ${o.source === 'pos' ? 'POS' : (o.payment || 'transfer')}</div></div>
         <div style="display:flex;gap:6px;align-items:center">
           <span class="badge ${o.status === 'selesai' ? 'badge-success' : o.status === 'pending' ? 'badge-warning' : 'badge-info'}">${o.status}</span>
           <span class="badge ${o.paymentStatus === 'lunas' ? 'badge-success' : 'badge-danger'}">${o.paymentStatus || 'menunggu'}</span>
         </div>
       </div>
       <div style="font-size:13px;color:var(--gray-500);margin-bottom:8px"><i class="fas fa-list" style="margin-right:6px"></i>${prod_names}</div>
+      ${o.notes ? `<div style="font-size:12px;color:var(--warning);margin-bottom:8px"><i>Catatan: ${o.notes}</i></div>` : ''}
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div style="font-weight:700;font-size:16px;color:var(--emerald)">${fmt(o.total)}</div>
         <div style="display:flex;gap:6px">
           ${o.wa ? `<a href="https://wa.me/${o.wa.replace(/\D/g, '')}" target="_blank" class="btn-secondary btn-sm"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA</a>` : ''}
           ${o.status !== 'selesai' ? `<button class="btn-primary btn-sm" onclick="updateOrderStatus('${o.id}','proses')" style="${o.status === 'proses' ? 'display:none' : ''}">Proses</button><button class="btn-primary btn-sm" onclick="updateOrderStatus('${o.id}','selesai')">Selesai</button>` : ''}
+          <button class="btn-secondary btn-sm" onclick="editOrder('${o.id}')"><i class="fas fa-edit"></i></button>
+          <button class="btn-icon" onclick="deleteOrder(\'${o.id}\')" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
         </div>
       </div>
     </div>`;
       }).join('');
     }
+
+    function editOrder(id) {
+      const o = DB.orders.find(x => x.id === id);
+      if(!o) return;
+      editingId = id;
+      showModal(`
+        <div class="modal-header"><div class="modal-title">Edit Pesanan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
+        <div class="form-group">
+          <label class="form-label">Status Pesanan</label>
+          <select id="edit-o-status" class="form-control">
+             <option value="pending" ${o.status==='pending'?'selected':''}>Menunggu (Pending)</option>
+             <option value="proses" ${o.status==='proses'?'selected':''}>Diproses</option>
+             <option value="selesai" ${o.status==='selesai'?'selected':''}>Selesai</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Catatan</label>
+          <input type="text" id="edit-o-notes" class="form-control" value="${o.notes||''}" placeholder="Catatan tambahan">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Items (Qty)</label>
+          <div id="edit-o-items" style="max-height:200px; overflow-y:auto; border:1px solid #eee; padding:10px; border-radius:4px">
+             ${o.items.map((it, idx) => {
+                 const p = DB.products.find(x => x.id === it.productId);
+                 const pName = p ? p.name : 'Produk Dihapus';
+                 return `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-size:13px">${pName}</div>
+                    <input type="number" id="edit-o-qty-${idx}" value="${it.qty}" min="0" class="form-control" style="width:70px; padding:4px">
+                 </div>`;
+             }).join('')}
+          </div>
+        </div>
+        <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveEditOrder()">Simpan</button></div>
+      `);
+    }
+
+    function saveEditOrder() {
+       const o = DB.orders.find(x => x.id === editingId);
+       if(!o) return closeModal();
+
+       const newStatus = document.getElementById('edit-o-status').value;
+       o.notes = document.getElementById('edit-o-notes').value;
+
+       let newTotal = 0;
+       o.items.forEach((it, idx) => {
+          const newQty = parseInt(document.getElementById('edit-o-qty-'+idx).value) || 0;
+          it.qty = newQty;
+          newTotal += it.price * newQty;
+       });
+       
+       o.items = o.items.filter(it => it.qty > 0);
+       o.total = newTotal;
+
+       if (newStatus === 'selesai' && o.status !== 'selesai') {
+           o.paymentStatus = 'lunas';
+           const txItems = o.items.map(it => {
+               const p = DB.products.find(x => x.id === it.productId);
+               return { productId: it.productId, qty: it.qty, price: it.price, productName: p?.name || 'Produk Dihapus', hpp: p ? calcHPP(p.id) : 0 };
+           });
+           const newTx = { id: 't' + Date.now(), orderId: o.id, date: getLocalDateStr(), items: txItems, total: o.total, status: 'lunas', source: o.source || 'online', customer: o.customerName };
+           DB.transactions.push(newTx);
+           if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'transactions', newTx.id), newTx).catch(e => console.error(e));
+           deductStock(o.items);
+       } else if (newStatus === 'selesai' || o.status === 'selesai') {
+           const tx = DB.transactions.find(t => t.orderId === o.id);
+           if (tx) {
+               tx.items = o.items.map(it => {
+                   const p = DB.products.find(x => x.id === it.productId);
+                   return { productId: it.productId, qty: it.qty, price: it.price, productName: p?.name || 'Produk Dihapus', hpp: p ? calcHPP(p.id) : 0 };
+               });
+               tx.total = o.total;
+               if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'transactions', tx.id), tx).catch(e => console.error(e));
+           }
+       }
+       o.status = newStatus;
+
+       if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'orders', o.id), o).catch(e => console.error(e));
+       saveDB(); toast('Pesanan berhasil diperbarui', 'success');
+       closeModal(); renderOrders(); updateBadgeOrders();
+    }
+
     function updateOrderStatus(id, status) {
       const o = DB.orders.find(x => x.id === id);
       if (o) {
         o.status = status;
         if (status === 'selesai') {
           o.paymentStatus = 'lunas';
-          DB.transactions.push({ id: 't' + Date.now(), date: new Date().toISOString().split('T')[0], items: o.items, total: o.total, status: 'lunas', source: 'online', customer: o.customerName });
+          const txItems = o.items.map(it => {
+              const p = DB.products.find(x => x.id === it.productId);
+              return { productId: it.productId, qty: it.qty, price: it.price, productName: p?.name || 'Produk Dihapus', hpp: p ? calcHPP(p.id) : 0 };
+          });
+          const newTx = { id: 't' + Date.now(), orderId: o.id, date: getLocalDateStr(), items: txItems, total: o.total, status: 'lunas', source: o.source || 'online', customer: o.customerName };
+          DB.transactions.push(newTx);
+          if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'transactions', newTx.id), newTx).catch(e => console.error(e));
           deductStock(o.items);
         }
+        if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'orders', o.id), o).catch(e => console.error(e));
         saveDB(); toast(`Pesanan ditandai: ${status}`, 'success');
         renderOrders(); updateBadgeOrders();
       }
+    }
+
+    function deleteOrder(id) {
+      if (!confirm('Hapus pesanan ini?')) return;
+      DB.orders = DB.orders.filter(o => o.id !== id);
+      deleteFromFirestore('orders', id);
+      
+      const relatedTx = DB.transactions.filter(t => t.orderId === id);
+      relatedTx.forEach(tx => {
+         DB.transactions = DB.transactions.filter(t => t.id !== tx.id);
+         deleteFromFirestore('transactions', tx.id);
+      });
+
+      saveDB(); renderOrders(); updateBadgeOrders(); toast('Pesanan dihapus', 'success');
     }
     function updateBadgeOrders() {
       const b = document.getElementById('badge-orders');
       const n = DB.orders.filter(o => o.status === 'pending').length;
       if (b) { b.textContent = n; b.style.display = n ? 'inline-flex' : 'none'; }
     }
-    function updateBadgeStock() {
-      const b = document.getElementById('badge-stock');
-      const low = DB.ingredients.filter(i => i.stock <= i.minStock).length;
-      if (b) b.style.display = low ? 'inline-flex' : 'none';
-    }
-    function checkLowStock() {
-      const low = DB.ingredients.filter(i => i.stock <= i.minStock);
-      if (low.length) toast(`Stok menipis: ${low.map(i => i.name).join(', ')}`, 'warning');
-      else toast('Semua stok aman', 'success');
-    }
+    function updateBadgeStock() {}
+    function checkLowStock() {}
 
 
     // ===================== PROCUREMENT =====================
+    async function refreshProcurement() {
+      if(!window.db) return;
+      try {
+        const snap = await window.fbGetDocs(window.fbCollection(window.db, 'procurement'));
+        const newProc = [];
+        snap.forEach(d => newProc.push(d.data()));
+        DB.procurement = newProc;
+        saveDB();
+        renderProcurement();
+        toast('Data pengadaan disinkronkan', 'success');
+      } catch(e) { toast('Gagal sync pengadaan', 'danger') }
+    }
+
     function renderProcurement() {
       const totalSpend = DB.procurement.reduce((s, p) => s + p.items.reduce((ss, i) => ss + i.totalPrice, 0), 0);
       document.getElementById('main-content').innerHTML = `
@@ -1048,17 +1422,53 @@
       <div class="stat-card emerald"><div class="stat-label">Total Pengadaan</div><div class="stat-value">${fmt(totalSpend)}</div><i class="fas fa-truck stat-icon"></i></div>
       <div class="stat-card gold"><div class="stat-label">Jumlah Transaksi</div><div class="stat-value">${DB.procurement.length}</div><i class="fas fa-file-invoice stat-icon"></i></div>
     </div>
+    
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:15px;font-weight:600">Riwayat Pengadaan</div>
-      <button class="btn-primary" onclick="showProcurementModal()"><i class="fas fa-plus" style="margin-right:6px"></i>Input Pengadaan</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="font-size:15px;font-weight:600">Riwayat Pengadaan</div>
+        <select id="pr-filter" onchange="renderProcList()" style="padding:4px;border-radius:4px;border:1px solid #ddd;font-size:12px" aria-label="Pilihan">
+          <option value="all">Semua Waktu</option>
+          <option value="today">Hari Ini</option>
+          <option value="week">Minggu Ini</option>
+          <option value="month">Bulan Ini</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary btn-sm" onclick="refreshProcurement()"><i class="fas fa-sync-alt" style="margin-right:6px"></i>Refresh</button>
+        <button class="btn-primary btn-sm" onclick="showProcurementModal()"><i class="fas fa-plus" style="margin-right:6px"></i>Input Pengadaan</button>
+      </div>
     </div>
+
     <div id="procurement-list"></div>
   `;
       renderProcList();
     }
+    
+    function isDateInRange(dateStr, filter) {
+      if (filter === 'all') return true;
+      const today = new Date();
+      const d = new Date(dateStr);
+      if (filter === 'today') return d.toDateString() === today.toDateString();
+      if (filter === 'week') {
+        const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return d >= lastWeek && d <= today;
+      }
+      if (filter === 'month') return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+      return true;
+    }
+
     function renderProcList() {
       const el = document.getElementById('procurement-list'); if (!el) return;
-      el.innerHTML = DB.procurement.slice().reverse().map(p => {
+      const filter = document.getElementById('pr-filter')?.value || 'all';
+      const filteredProc = DB.procurement.filter(p => isDateInRange(p.date, filter));
+      
+      const totalSpend = filteredProc.reduce((s, p) => s + p.items.reduce((ss, i) => ss + i.totalPrice, 0), 0);
+      const statTotal = document.querySelector('.emerald .stat-value');
+      const statCount = document.querySelector('.gold .stat-value');
+      if (statTotal) statTotal.textContent = fmt(totalSpend);
+      if (statCount) statCount.textContent = filteredProc.length;
+
+      el.innerHTML = filteredProc.slice().reverse().map(p => {
         const total = p.items.reduce((s, i) => s + i.totalPrice, 0);
         return `<div class="card" style="margin-bottom:12px">
       <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:10px">
@@ -1066,13 +1476,13 @@
         <div style="font-weight:700;color:var(--emerald)">${fmt(total)}</div>
       </div>
       ${p.items.map(it => { const ing = DB.ingredients.find(i => i.id === it.ingId); return `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--gray-100)"><span>${ing?.name || '?'}</span><span style="color:var(--gray-400)">${it.qty} ${it.unit}</span><span style="color:var(--emerald)">${fmt(it.totalPrice)}</span></div>` }).join('')}
-      <button class="btn-icon" onclick="deleteProcurement('${p.id}')" style="color:var(--danger);margin-top:8px;float:right"><i class="fas fa-trash"></i></button>
+      <div style="margin-top:8px;display:flex;justify-content:flex-end;gap:6px"><button class="btn-secondary btn-sm" onclick="editProcurement('${p.id}')"><i class="fas fa-edit"></i> Edit</button><button class="btn-icon" onclick="deleteProcurement('${p.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div>
     </div>`;
       }).join('') || '<div class="empty-state"><i class="fas fa-truck"></i><p>Belum ada pengadaan</p></div>';
     }
     function showProcurementModal() {
       showModal(`
-    <div class="modal-header"><div class="modal-title">Input Pengadaan</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">Input Pengadaan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Tanggal *</label><input type="date" id="pr-date" value="${new Date().toISOString().split('T')[0]}"></div>
       <div class="form-group"><label class="form-label">Supplier</label><input type="text" id="pr-supplier" placeholder="Nama supplier"></div>
@@ -1080,7 +1490,7 @@
     <div style="font-size:13px;font-weight:600;color:var(--gray-500);margin-bottom:8px">BAHAN YANG DIBELI</div>
     <div id="pr-items"></div>
     <button class="btn-secondary btn-sm" onclick="addPRItem()" style="margin-bottom:16px"><i class="fas fa-plus" style="margin-right:4px"></i>Tambah Bahan</button>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveProcurement()">Simpan</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveProcurement()">Simpan</button></div>
   `);
       prItems = [{ ingId: DB.ingredients[0]?.id || '', qty: 0, unit: 'gram', totalPrice: 0 }];
       renderPRItems();
@@ -1089,53 +1499,84 @@
     function renderPRItems() {
       const el = document.getElementById('pr-items'); if (!el) return;
       el.innerHTML = prItems.map((it, i) => `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:8px">
-    <select onchange="prItems[${i}].ingId=this.value;updatePRUnit(${i})">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === it.ingId ? 'selected' : ''}>${ing.name}</option>`).join('')}</select>
+    <select onchange="prItems[${i}].ingId=this.value;updatePRUnit(${i})" aria-label="Pilihan">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === it.ingId ? 'selected' : ''}>${ing.name}</option>`).join('')}</select>
     <input type="number" placeholder="Qty" value="${it.qty}" oninput="prItems[${i}].qty=parseFloat(this.value)||0;updatePRCost(${i})">
-    <select onchange="prItems[${i}].unit=this.value" id="pr-unit-${i}"><option ${it.unit === 'gram' ? 'selected' : ''}>gram</option><option ${it.unit === 'kg' ? 'selected' : ''}>kg</option><option ${it.unit === 'ml' ? 'selected' : ''}>ml</option><option ${it.unit === 'liter' ? 'selected' : ''}>liter</option><option ${it.unit === 'pcs' ? 'selected' : ''}>pcs</option></select>
+    <select onchange="prItems[${i}].unit=this.value" id="pr-unit-${i}" aria-label="Pilihan"><option ${it.unit === 'gram' ? 'selected' : ''}>gram</option><option ${it.unit === 'kg' ? 'selected' : ''}>kg</option><option ${it.unit === 'ml' ? 'selected' : ''}>ml</option><option ${it.unit === 'liter' ? 'selected' : ''}>liter</option><option ${it.unit === 'pcs' ? 'selected' : ''}>pcs</option></select>
     <input type="number" placeholder="Total (Rp)" value="${it.totalPrice}" oninput="prItems[${i}].totalPrice=parseFloat(this.value)||0">
     <button class="btn-icon" onclick="prItems.splice(${i},1);renderPRItems()" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
   </div>`).join('');
     }
     function addPRItem() { prItems.push({ ingId: DB.ingredients[0]?.id || '', qty: 0, unit: 'gram', totalPrice: 0 }); renderPRItems() }
+    
+    function editProcurement(id) {
+      const p = DB.procurement.find(x => x.id === id);
+      if (!p) return;
+      updateStockFromProcurement(p.items, true); // Reverse stock
+      DB.procurement = DB.procurement.filter(x => x.id !== id);
+      
+      showProcurementModal();
+      document.getElementById('pr-date').value = p.date;
+      document.getElementById('pr-supplier').value = p.supplier;
+      prItems = JSON.parse(JSON.stringify(p.items));
+      renderPRItems();
+    }
     function saveProcurement() {
       const date = document.getElementById('pr-date').value;
       const supplier = document.getElementById('pr-supplier').value;
       if (!date || !prItems.length) { toast('Isi data pengadaan', 'warning'); return }
       const proc = { id: 'pr' + Date.now(), date, supplier, items: [...prItems] };
       DB.procurement.push(proc);
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'procurement', proc.id), proc).catch(e => console.error(e));
       updateIngredientPrices();
       updateStockFromProcurement(prItems);
       saveDB(); closeModal(); renderProcurement(); toast('Pengadaan disimpan & harga bahan diperbarui', 'success');
     }
+    
+    function getConvertedQty(qty, unit, ingUnit) {
+      let q = qty;
+      if (unit === 'kg' && ingUnit === 'gram') q *= 1000;
+      if (unit === 'liter' && ingUnit === 'ml') q *= 1000;
+      return q;
+    }
+
     function updateIngredientPrices() {
       DB.ingredients.forEach(ing => {
-        const allPurchases = [];
-        DB.procurement.forEach(p => { p.items.forEach(it => { if (it.ingId === ing.id && it.qty > 0 && it.totalPrice > 0) { allPurchases.push({ date: p.date, pricePerUnit: it.totalPrice / it.qty, unit: it.unit }) } }) });
-        if (allPurchases.length) {
-          allPurchases.sort((a, b) => b.date.localeCompare(a.date));
-          const latest = allPurchases[0];
-          let pricePerBase = latest.pricePerUnit;
-          if (latest.unit === 'kg' && ing.unit === 'gram') pricePerBase /= 1000;
-          if (latest.unit === 'liter' && ing.unit === 'ml') pricePerBase /= 1000;
-          ing.price = pricePerBase;
-        }
+        let latestProcDate = '';
+        let latestPrice = ing.price || 0;
+        
+        DB.procurement.forEach(p => {
+          p.items.forEach(it => {
+            if (it.ingId === ing.id && it.qty > 0 && it.totalPrice > 0) {
+              if (p.date >= latestProcDate) {
+                latestProcDate = p.date;
+                const convertedQty = getConvertedQty(it.qty, it.unit, ing.unit);
+                latestPrice = it.totalPrice / convertedQty;
+              }
+            }
+          });
+        });
+        
+        ing.price = latestPrice;
       });
     }
-    function updateStockFromProcurement(items) {
+    function updateStockFromProcurement(items, reverse = false) {
       items.forEach(it => {
         const ing = DB.ingredients.find(i => i.id === it.ingId);
         if (ing) {
-          let addQty = it.qty;
-          if (it.unit === 'kg' && ing.unit === 'gram') addQty *= 1000;
-          if (it.unit === 'liter' && ing.unit === 'ml') addQty *= 1000;
-          ing.stock += addQty;
+          const convertedQty = getConvertedQty(it.qty, it.unit, ing.unit);
+          if (reverse) ing.stock = Math.max(0, ing.stock - convertedQty);
+          else ing.stock += convertedQty;
         }
       });
-      updateBadgeStock();
     }
+
+
     function deleteProcurement(id) {
       if (!confirm('Hapus data pengadaan ini?')) return;
-      DB.procurement = DB.procurement.filter(p => p.id !== id);
+      const p = DB.procurement.find(x => x.id === id);
+      if (p) updateStockFromProcurement(p.items, true); // Reverse stock
+      DB.procurement = DB.procurement.filter(x => x.id !== id);
+      deleteFromFirestore('procurement', id);
       updateIngredientPrices(); saveDB(); renderProcurement();
     }
 
@@ -1150,73 +1591,101 @@
       <div class="stat-card danger"><div class="stat-label">Total Biaya</div><div class="stat-value">${fmt(total)}</div><i class="fas fa-receipt stat-icon"></i></div>
       ${catTotals.slice(0, 3).map(c => `<div class="stat-card blue"><div class="stat-label">${c.cat}</div><div class="stat-value">${fmt(c.total)}</div></div>`).join('')}
     </div>
+    
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:15px;font-weight:600">Riwayat Biaya</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="font-size:15px;font-weight:600">Riwayat Biaya</div>
+        <select id="ex-filter" onchange="renderExpensesList()" style="padding:4px;border-radius:4px;border:1px solid #ddd;font-size:12px" aria-label="Pilihan">
+          <option value="all">Semua Waktu</option>
+          <option value="today">Hari Ini</option>
+          <option value="week">Minggu Ini</option>
+          <option value="month">Bulan Ini</option>
+        </select>
+      </div>
       <button class="btn-primary" onclick="showExpenseModal()"><i class="fas fa-plus" style="margin-right:6px"></i>Tambah Biaya</button>
     </div>
+
     <div class="card"><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Kategori</th><th>Deskripsi</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody>
-      ${DB.expenses.slice().reverse().map(e => `<tr><td>${e.date}</td><td><span class="badge badge-gray">${e.category}</span></td><td>${e.desc || '-'}</td><td style="font-weight:600;color:var(--danger)">${fmt(e.amount)}</td><td><button class="btn-icon" onclick="deleteExpense('${e.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada biaya</td></tr>'}
+      
     </tbody></table></div></div>
   `;
+      renderExpensesList();
     }
+    
+    function renderExpensesList() {
+      const filter = document.getElementById('ex-filter')?.value || 'all';
+      const filteredExp = DB.expenses.filter(e => isDateInRange(e.date, filter));
+      
+      const total = filteredExp.reduce((s, e) => s + e.amount, 0);
+      const statTotal = document.querySelector('.danger .stat-value');
+      if (statTotal) statTotal.textContent = fmt(total);
+
+      const tb = document.querySelector('#main-content table tbody');
+      if (tb) {
+        tb.innerHTML = filteredExp.slice().reverse().map(e => `<tr><td>${e.date}</td><td><span class="badge badge-gray">${e.category}</span></td><td>${e.desc || '-'}</td><td style="font-weight:600;color:var(--danger)">${fmt(e.amount)}</td><td><button class="btn-icon" onclick="deleteExpense('${e.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada biaya</td></tr>';
+      }
+    }
+
     function showExpenseModal() {
       showModal(`
-    <div class="modal-header"><div class="modal-title">Tambah Biaya</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">Tambah Biaya</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Tanggal *</label><input type="date" id="ef-date" value="${new Date().toISOString().split('T')[0]}"></div>
-      <div class="form-group"><label class="form-label">Kategori *</label><select id="ef-cat"><option>Listrik</option><option>Air</option><option>Gas</option><option>Gaji</option><option>Sewa</option><option>Bahan Bakar</option><option>Kebersihan</option><option>Lainnya</option></select></div>
+      <div class="form-group"><label class="form-label">Kategori *</label><select id="ef-cat" aria-label="Pilihan"><option>Listrik</option><option>Air</option><option>Gas</option><option>Gaji</option><option>Sewa</option><option>Bahan Bakar</option><option>Kebersihan</option><option>Lainnya</option></select></div>
     </div>
     <div class="form-group"><label class="form-label">Deskripsi</label><input type="text" id="ef-desc" placeholder="Keterangan biaya"></div>
     <div class="form-group"><label class="form-label">Jumlah (Rp) *</label><input type="number" id="ef-amount" placeholder="0"></div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveExpense()">Simpan</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveExpense()">Simpan</button></div>
   `);
     }
     function saveExpense() {
       const amount = parseInt(document.getElementById('ef-amount').value) || 0;
       if (!amount) { toast('Masukkan jumlah biaya', 'warning'); return }
-      DB.expenses.push({ id: 'e' + Date.now(), date: document.getElementById('ef-date').value, category: document.getElementById('ef-cat').value, desc: document.getElementById('ef-desc').value, amount });
+      const e = { id: 'e' + Date.now(), date: document.getElementById('ef-date').value, category: document.getElementById('ef-cat').value, desc: document.getElementById('ef-desc').value, amount };
+      DB.expenses.push(e);
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'expenses', e.id), e).catch(err => console.error(err));
       saveDB(); closeModal(); renderExpenses(); toast('Biaya ditambahkan', 'success');
     }
-    function deleteExpense(id) { if (!confirm('Hapus biaya ini?')) return; DB.expenses = DB.expenses.filter(e => e.id !== id); saveDB(); renderExpenses(); }
+    function deleteExpense(id) { if (!confirm('Hapus biaya ini?')) return; DB.expenses = DB.expenses.filter(e => e.id !== id); deleteFromFirestore('expenses', id); saveDB(); renderExpenses(); }
 
     // ===================== REPORTS =====================
     function renderReports() {
-      const today = new Date().toISOString().split('T')[0];
-      const thisMonth = today.substring(0, 7);
-      const monthTx = DB.transactions.filter(t => t.date.startsWith(thisMonth));
-      const monthOrders = DB.orders.filter(o => o.date.startsWith(thisMonth) && o.paymentStatus === 'lunas');
-      const omzet = monthTx.reduce((s, t) => s + t.total, 0) + monthOrders.reduce((s, o) => s + o.total, 0);
-      const hpp = calcTotalHPP(monthTx);
-      const expenses = DB.expenses.filter(e => e.date.startsWith(thisMonth)).reduce((s, e) => s + e.amount, 0);
-      const procurement = DB.procurement.filter(p => p.date.startsWith(thisMonth)).reduce((s, p) => s + p.items.reduce((ss, i) => ss + i.totalPrice, 0), 0);
-      const grossProfit = omzet - hpp;
-      const netProfit = grossProfit - expenses;
+      const validTxs = getValidOnlineTransactions();
+      const filteredTx = filterDataByDate(validTxs, currentFilters['reports']);
+      const filteredExps = filterDataByDate(DB.expenses, currentFilters['reports']);
+      
+      const metrics = calculateBusinessMetrics(filteredTx, filteredExps);
+
+      let reportTitle = "Sesuai Filter";
+      if (currentFilters['reports'].type === 'bulan') reportTitle = "Bulan Ini";
+      if (currentFilters['reports'].type === 'tanggal') reportTitle = "Hari Ini";
+
       document.getElementById('main-content').innerHTML = `
+    ${renderFilterUI('reports')}
     <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
-      <input type="month" id="report-month" value="${thisMonth}" onchange="renderReports()" style="width:auto">
       <button class="btn-secondary btn-sm" onclick="exportPDF()"><i class="fas fa-file-pdf" style="margin-right:4px"></i>Export PDF</button>
       <button class="btn-secondary btn-sm" onclick="exportExcel()"><i class="fas fa-file-excel" style="margin-right:4px"></i>Export Excel</button>
     </div>
     <div class="stat-grid" style="margin-bottom:24px">
-      <div class="stat-card emerald"><div class="stat-label">Total Omzet</div><div class="stat-value">${fmt(omzet)}</div><div class="stat-sub">${monthTx.length + monthOrders.length} transaksi</div></div>
-      <div class="stat-card blue"><div class="stat-label">Total HPP</div><div class="stat-value">${fmt(hpp)}</div></div>
-      <div class="stat-card gold"><div class="stat-label">Gross Profit</div><div class="stat-value">${fmt(grossProfit)}</div><div class="stat-sub">${omzet ? Math.round(grossProfit / omzet * 100) : 0}% margin</div></div>
-      <div class="stat-card danger"><div class="stat-label">Net Profit</div><div class="stat-value">${fmt(netProfit)}</div></div>
+      <div class="stat-card emerald"><div class="stat-label">Total Omzet</div><div class="stat-value">${fmt(metrics.totalRevenue)}</div><div class="stat-sub">${metrics.totalTransactions} transaksi</div></div>
+      <div class="stat-card blue"><div class="stat-label">Total HPP</div><div class="stat-value">${fmt(metrics.totalHPP)}</div></div>
+      <div class="stat-card gold"><div class="stat-label">Gross Profit</div><div class="stat-value">${fmt(metrics.grossProfit)}</div><div class="stat-sub">${metrics.margin}% margin</div></div>
+      <div class="stat-card danger"><div class="stat-label">Net Profit</div><div class="stat-value">${fmt(metrics.netProfit)}</div></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px" class="responsive-grid">
       <div class="card">
         <div class="card-title" style="margin-bottom:16px">Laporan Laba Rugi</div>
         <table style="width:100%">
-          <tr><td style="padding:8px 0;color:var(--gray-500)">Pendapatan</td><td style="text-align:right;font-weight:600;color:var(--emerald)">${fmt(omzet)}</td></tr>
-          <tr><td style="padding:8px 0;color:var(--gray-500)">(-) HPP</td><td style="text-align:right;color:var(--danger)">(${fmt(hpp)})</td></tr>
-          <tr><td style="padding:8px 0;font-weight:600">= Gross Profit</td><td style="text-align:right;font-weight:700;color:var(--emerald)">${fmt(grossProfit)}</td></tr>
-          <tr><td style="padding:8px 0;color:var(--gray-500)">(-) Biaya Ops</td><td style="text-align:right;color:var(--danger)">(${fmt(expenses)})</td></tr>
-          <tr style="border-top:2px solid var(--gray-200)"><td style="padding:12px 0 4px;font-weight:700;font-size:15px">= Net Profit</td><td style="text-align:right;font-weight:700;font-size:15px;color:${netProfit >= 0 ? 'var(--emerald)' : 'var(--danger)'}">${fmt(netProfit)}</td></tr>
+          <tr><td style="padding:8px 0;color:var(--gray-500)">Pendapatan</td><td style="text-align:right;font-weight:600;color:var(--emerald)">${fmt(metrics.totalRevenue)}</td></tr>
+          <tr><td style="padding:8px 0;color:var(--gray-500)">(-) HPP</td><td style="text-align:right;color:var(--danger)">(${fmt(metrics.totalHPP)})</td></tr>
+          <tr><td style="padding:8px 0;font-weight:600">= Gross Profit</td><td style="text-align:right;font-weight:700;color:var(--emerald)">${fmt(metrics.grossProfit)}</td></tr>
+          <tr><td style="padding:8px 0;color:var(--gray-500)">(-) Biaya Ops</td><td style="text-align:right;color:var(--danger)">(${fmt(metrics.totalExpenses)})</td></tr>
+          <tr style="border-top:2px solid var(--gray-200)"><td style="padding:12px 0 4px;font-weight:700;font-size:15px">= Net Profit</td><td style="text-align:right;font-weight:700;font-size:15px;color:${metrics.netProfit >= 0 ? 'var(--emerald)' : 'var(--danger)'}">${fmt(metrics.netProfit)}</td></tr>
         </table>
       </div>
       <div class="card">
-        <div class="card-title" style="margin-bottom:16px">Produk Terlaris Bulan Ini</div>
-        ${getTopProds(monthTx).map((x, i) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100)">
+        <div class="card-title" style="margin-bottom:16px">Produk Terlaris (${reportTitle})</div>
+        ${getTopProds(filteredTx).map((x, i) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100)">
           <div style="width:22px;height:22px;background:var(--emerald-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--emerald)">${i + 1}</div>
           <div style="flex:1;font-size:13px">${x.name}</div>
           <div style="font-size:13px;color:var(--emerald);font-weight:600">${x.qty}x</div>
@@ -1227,7 +1696,7 @@
     <div class="card">
       <div class="card-header"><div class="card-title">Riwayat Transaksi</div></div>
       <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Sumber</th><th>Items</th><th>Total</th><th>Status</th></tr></thead><tbody>
-        ${monthTx.slice().reverse().map(t => `<tr><td>${t.date}</td><td><span class="badge badge-gray">${t.source || 'kasir'}</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.items.map(i => { const p = DB.products.find(x => x.id === i.productId); return p ? `${p.name}x${i.qty}` : '' }).filter(Boolean).join(', ')}</td><td style="font-weight:600;color:var(--emerald)">${fmt(t.total)}</td><td><span class="badge badge-success">${t.status}</span></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada transaksi</td></tr>'}
+        ${filteredTx.slice().reverse().map(t => `<tr><td>${t.date}</td><td><span class="badge badge-gray">${t.source || 'kasir'}</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.items.map(i => { const p = DB.products.find(x => x.id === i.productId); return (p ? p.name : (i.productName || 'Produk Dihapus')) + 'x' + i.qty }).join(', ')}</td><td style="font-weight:600;color:var(--emerald)">${fmt(t.total)}</td><td><span class="badge badge-success">${t.status}</span></td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada transaksi</td></tr>'}
       </tbody></table></div>
     </div>
   `;
@@ -1235,18 +1704,22 @@
     function getTopProds(transactions) {
       const map = {};
       transactions.forEach(t => t.items.forEach(it => {
-        if (!map[it.productId]) map[it.productId] = { qty: 0, revenue: 0 };
-        map[it.productId].qty += it.qty; map[it.productId].revenue += it.price * it.qty;
+        if (DB.products.some(p => p.id === it.productId)) {
+          if (!map[it.productId]) map[it.productId] = { qty: 0, revenue: 0, productName: DB.products.find(p => p.id === it.productId).name };
+          map[it.productId].qty += it.qty; 
+          map[it.productId].revenue += it.price * it.qty;
+        }
       }));
       return Object.entries(map).sort((a, b) => b[1].qty - a[1].qty).slice(0, 5).map(([id, v]) => {
-        const p = DB.products.find(x => x.id === id); return { name: p?.name || '?', ...v };
+        return { name: v.productName, qty: v.qty, revenue: v.revenue };
       });
     }
     function exportPDF() {
       window.print(); toast('Halaman siap dicetak / disimpan sebagai PDF', 'success');
     }
     function exportExcel() {
-      const rows = [['Tanggal', 'Sumber', 'Total', 'Status'], ...DB.transactions.map(t => [t.date, t.source, t.total, t.status])];
+      const validTxs = getValidOnlineTransactions();
+      const rows = [['Tanggal', 'Sumber', 'Total', 'Status'], ...validTxs.map(t => [t.date, t.source, t.total, t.status])];
       const csv = rows.map(r => r.join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'laporan_syncro.csv'; a.click();
@@ -1273,29 +1746,31 @@
     <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.address || '-'}</td>
     <td>${c.totalOrders || 0}x</td>
     <td style="font-weight:600;color:var(--emerald)">${fmt(c.totalSpent || 0)}</td>
-    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showCustModal('${c.id}')"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteCust('${c.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
+    <td><div style="display:flex;gap:4px"><button class="btn-icon" onclick="showCustModal('${c.id}')" aria-label="Edit"><i class="fas fa-edit"></i></button><button class="btn-icon" onclick="deleteCust('${c.id}')" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></td>
   </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:32px">Belum ada pelanggan</td></tr>`;
     }
     function filterCustomers(v) { renderCustTable(DB.customers.filter(c => c.name.toLowerCase().includes(v.toLowerCase()) || c.wa?.includes(v))) }
     function showCustModal(id = null) {
       editingId = id; const c = id ? DB.customers.find(x => x.id === id) : { name: '', wa: '', address: '' };
       showModal(`
-    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Pelanggan</div><button class="btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Pelanggan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
     <div class="form-group"><label class="form-label">Nama *</label><input type="text" id="cf-name" value="${c.name}"></div>
     <div class="form-group"><label class="form-label">WhatsApp</label><input type="tel" id="cf-wa" value="${c.wa || ''}" placeholder="08xxxxxxxxxx"></div>
     <div class="form-group"><label class="form-label">Alamat</label><textarea id="cf-addr" rows="2">${c.address || ''}</textarea></div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Batal</button><button class="btn-primary" onclick="saveCust()">${id ? 'Simpan' : 'Tambah'}</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()" aria-label="Tutup">Batal</button><button class="btn-primary" onclick="saveCust()">${id ? 'Simpan' : 'Tambah'}</button></div>
   `);
     }
     function saveCust() {
       const name = document.getElementById('cf-name').value.trim();
       if (!name) { toast('Nama wajib diisi', 'warning'); return }
       const data = { name, wa: document.getElementById('cf-wa').value, address: document.getElementById('cf-addr').value };
-      if (editingId) { Object.assign(DB.customers.find(x => x.id === editingId), data); toast('Data diperbarui', 'success') }
-      else { DB.customers.push({ id: 'c' + Date.now(), ...data, totalOrders: 0, totalSpent: 0 }); toast('Pelanggan ditambahkan', 'success') }
+      let c;
+      if (editingId) { c = DB.customers.find(x => x.id === editingId); Object.assign(c, data); toast('Data diperbarui', 'success') }
+      else { c = { id: 'c' + Date.now(), ...data, totalOrders: 0, totalSpent: 0 }; DB.customers.push(c); toast('Pelanggan ditambahkan', 'success') }
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'customers', c.id), c).catch(e => console.error(e));
       saveDB(); closeModal(); renderCustomers();
     }
-    function deleteCust(id) { if (!confirm('Hapus pelanggan ini?')) return; DB.customers = DB.customers.filter(c => c.id !== id); saveDB(); renderCustomers(); }
+    function deleteCust(id) { if (!confirm('Hapus pelanggan ini?')) return; DB.customers = DB.customers.filter(c => c.id !== id); deleteFromFirestore('customers', id); saveDB(); renderCustomers(); }
 
 
     // ===================== LANDING SETTINGS =====================
@@ -1340,6 +1815,7 @@
       DB.settings.bizDesc = document.getElementById('lp-desc').value;
       DB.settings.waNumber = document.getElementById('lp-wa').value;
       DB.settings.address = document.getElementById('lp-addr').value;
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'settings', 'store'), DB.settings).catch(e => console.error(e));
       saveDB(); toast('Pengaturan landing page disimpan', 'success');
     }
 
@@ -1387,7 +1863,7 @@
         <div class="card-title" style="margin-bottom:16px">Pengaturan Tampilan</div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--gray-100)">
           <div><div style="font-weight:500">Mode Gelap</div><div style="font-size:12px;color:var(--gray-400)">Ubah tampilan menjadi dark mode</div></div>
-          <button class="btn-secondary" onclick="toggleDark()"><i class="fas fa-moon" style="margin-right:6px"></i>Toggle</button>
+          <button class="btn-secondary" onclick="toggleDark()" aria-label="Toggle Dark Mode"><i class="fas fa-moon" style="margin-right:6px"></i>Toggle</button>
         </div>
       </div>
       <div class="card" style="margin-bottom:16px">
