@@ -117,6 +117,86 @@
           if (currentPage === 'customers') renderCustomers();
         }
       }));
+
+      // PATCH 4: Listen for Products
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'products'), (snapshot) => {
+        let hasNewData = false;
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const data = change.doc.data();
+            const idx = DB.products.findIndex(p => p.id === data.id);
+            if (idx >= 0) {
+              if (JSON.stringify(DB.products[idx]) !== JSON.stringify(data)) { DB.products[idx] = data; hasNewData = true; }
+            } else { DB.products.push(data); hasNewData = true; }
+          } else if (change.type === 'removed') {
+            DB.products = DB.products.filter(x => x.id !== change.doc.id); hasNewData = true;
+          }
+        });
+        if (hasNewData) {
+          localStorage.setItem('syncro_db', JSON.stringify(DB));
+          if (currentPage === 'products') renderProducts();
+          if (currentPage === 'pos') renderPOS();
+        }
+      }));
+
+      // PATCH 4: Listen for Ingredients
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'ingredients'), (snapshot) => {
+        let hasNewData = false;
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const data = change.doc.data();
+            const idx = DB.ingredients.findIndex(i => i.id === data.id);
+            if (idx >= 0) {
+              if (JSON.stringify(DB.ingredients[idx]) !== JSON.stringify(data)) { DB.ingredients[idx] = data; hasNewData = true; }
+            } else { DB.ingredients.push(data); hasNewData = true; }
+          } else if (change.type === 'removed') {
+            DB.ingredients = DB.ingredients.filter(x => x.id !== change.doc.id); hasNewData = true;
+          }
+        });
+
+        // MASALAH B: One-time migration for old ingredients lacking code
+        let maxNum = 0;
+        DB.ingredients.forEach(i => {
+           if (i.code && i.code.startsWith('BRG')) {
+              const num = parseInt(i.code.replace('BRG', ''), 10);
+              if (!isNaN(num) && num > maxNum) maxNum = num;
+           }
+        });
+        DB.ingredients.forEach(i => {
+           if (!i.code) {
+              maxNum++;
+              i.code = 'BRG' + String(maxNum).padStart(4, '0');
+              hasNewData = true;
+              if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'ingredients', i.id), i).catch(e => console.error(e));
+           }
+        });
+
+        if (hasNewData) {
+          localStorage.setItem('syncro_db', JSON.stringify(DB));
+          if (currentPage === 'ingredients') renderIngredients();
+          if (currentPage === 'inventory') renderInventory();
+        }
+      }));
+
+      // PATCH 4: Listen for Recipes
+      window.unsubscribers.push(window.fbOnSnapshot(window.fbCollection(window.db, 'recipes'), (snapshot) => {
+        let hasNewData = false;
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const data = change.doc.data();
+            const idx = DB.recipes.findIndex(r => r.id === data.id);
+            if (idx >= 0) {
+              if (JSON.stringify(DB.recipes[idx]) !== JSON.stringify(data)) { DB.recipes[idx] = data; hasNewData = true; }
+            } else { DB.recipes.push(data); hasNewData = true; }
+          } else if (change.type === 'removed') {
+            DB.recipes = DB.recipes.filter(x => x.id !== change.doc.id); hasNewData = true;
+          }
+        });
+        if (hasNewData) {
+          localStorage.setItem('syncro_db', JSON.stringify(DB));
+          if (currentPage === 'recipes') renderRecipes();
+        }
+      }));
     }
 
     async function syncToFirebase() {
@@ -127,7 +207,15 @@
     // ===================== DATA STORE =====================
     function loadDB() {
       const saved = localStorage.getItem('syncro_db');
-      if (saved) DB = { ...DB, ...JSON.parse(saved) };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (window.db) {
+           // PATCH 2: Cegah memuat data bisnis dari cache jika Firebase aktif
+           DB.settings = parsed.settings || DB.settings;
+        } else {
+           DB = { ...DB, ...parsed };
+        }
+      }
     }
 
     function deleteFromFirestore(col, id) {
@@ -146,6 +234,7 @@
     function log(action, detail) { auditLog.push({ time: new Date().toISOString(), user: currentUser?.name, action, detail }) }
 
     function initDemoData() {
+      if (window.db) return; // PATCH 1: Nonaktifkan pada mode produksi (Firebase aktif)
       if (localStorage.getItem('syncro_demo_injected')) return;
       if (DB.users.length === 0) {
         DB.users.push({ id: 'u1', name: 'Admin Syncro', email: 'admin@syncro.id', password: btoa('admin123'), role: 'admin', business: 'Warung Syncro' });
@@ -432,12 +521,10 @@
 
     function getValidOnlineTransactions() {
       return DB.transactions.filter(t => {
-        if (t.source === 'online' || t.orderId) {
-          if (!t.orderId) return false; // invalid online tx
-          const validOrders = getValidOrders();
-          return validOrders.some(o => o.id === t.orderId);
-        }
-        return true; // kasir, pos, dll
+        // PATCH 3: Perbaiki orphan transaction
+        if (!t.orderId) return false; // Semua transaksi harus punya referensi order yang valid
+        const validOrders = getValidOrders();
+        return validOrders.some(o => o.id === t.orderId);
       });
     }
 
@@ -835,7 +922,7 @@
           <span class="badge ${p.available ? 'badge-success' : 'badge-danger'}" style="flex-shrink:0;font-size:11px">${p.available ? 'Tersedia' : 'Habis'}</span>
         </div>
         <div class="product-price">${fmt(p.price)}</div>
-        <div class="product-hpp">HPP: ${fmt(calcHPP(p.id))} · Margin: ${p.price ? Math.round((p.price - calcHPP(p.id)) / p.price * 100) : 0}%</div>
+        <div class="product-hpp">HPP: ${fmt(calcHPP(p.id))} · Margin: ${p.price > 0 ? Math.round((p.price - calcHPP(p.id)) / p.price * 100) : 0}%</div>
         <div style="font-size:12px;color:var(--gray-400);margin-top:4px;line-height:1.4">${p.desc || ''}</div>
         <div class="product-actions">
           <button class="btn-secondary btn-sm" style="flex:1" onclick="showProductModal('${p.id}')"><i class="fas fa-edit"></i> Edit</button>
@@ -849,13 +936,42 @@
       const f = DB.products.filter(p => p.name.toLowerCase().includes(v.toLowerCase()) || p.desc?.toLowerCase().includes(v.toLowerCase()));
       renderProductGrid(f);
     }
+    function getIngredientPrice(ing) {
+      if (!ing) return 0;
+      let latestProcDate = '';
+      let latestPrice = Number(ing.price) || 0; // Fallback to stored price
+      
+      DB.procurement.forEach(p => {
+        p.items.forEach(it => {
+          let match = (it.ingId === ing.id);
+          // Fallback matching by name just in case data is corrupted
+          if (!match && it.name && ing.name) {
+             match = it.name.trim().toUpperCase() === ing.name.trim().toUpperCase();
+          }
+          if (match && it.qty > 0 && it.totalPrice > 0) {
+            if (!latestProcDate || p.date >= latestProcDate) {
+              latestProcDate = p.date;
+              const convertedQty = getConvertedQty(it.qty, it.unit, ing.unit);
+              if (convertedQty > 0) {
+                latestPrice = it.totalPrice / convertedQty;
+              }
+            }
+          }
+        });
+      });
+      return isNaN(latestPrice) ? 0 : latestPrice;
+    }
+
     function calcHPP(productId) {
       const recipe = DB.recipes.find(r => r.productId === productId);
       if (!recipe) return 0;
-      return recipe.items.reduce((s, ri) => {
+      let hpp = recipe.items.reduce((s, ri) => {
         const ing = DB.ingredients.find(i => i.id === ri.ingId);
-        return s + (ing ? ing.price * ri.qty : 0);
+        if (!ing) return s;
+        const price = getIngredientPrice(ing);
+        return s + (price * ri.qty);
       }, 0);
+      return isNaN(hpp) ? 0 : hpp;
     }
     function showProductModal(id = null) {
       editingId = id;
@@ -935,13 +1051,24 @@
 
 
     // ===================== INGREDIENTS =====================
+    function getNextIngredientCode() {
+      let maxNum = 0;
+      DB.ingredients.forEach(i => {
+        if (i.code && i.code.startsWith('BRG')) {
+          const num = parseInt(i.code.replace('BRG', ''), 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      });
+      return 'BRG' + String(maxNum + 1).padStart(4, '0');
+    }
+
     function renderIngredients() {
       document.getElementById('main-content').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="search-bar" style="max-width:300px"><i class="fas fa-search"></i><input type="text" placeholder="Cari bahan..." oninput="filterIngredients(this.value)"></div>
       <button class="btn-primary" onclick="showIngModal()"><i class="fas fa-plus" style="margin-right:6px"></i>Tambah Bahan</button>
     </div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Stok</th><th>Aksi</th></tr></thead><tbody id="ing-tbody"></tbody></table></div></div>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama Bahan</th><th>Satuan</th><th>Stok</th><th>Aksi</th></tr></thead><tbody id="ing-tbody"></tbody></table></div></div>
   `;
       renderIngTable(DB.ingredients);
     }
@@ -949,6 +1076,7 @@
       const tb = document.getElementById('ing-tbody');
       if (!tb) return;
       tb.innerHTML = ings.map(i => `<tr>
+    <td><span class="badge badge-gray">${i.code || '-'}</span></td>
     <td><strong>${i.name}</strong></td>
     <td>${i.unit}</td>
     <td><strong>${i.stock}</strong> ${i.unit}</td>
@@ -958,9 +1086,10 @@
     function filterIngredients(v) { renderIngTable(DB.ingredients.filter(i => i.name.toLowerCase().includes(v.toLowerCase()))) }
     function showIngModal(id = null) {
       editingId = id;
-      const i = id ? DB.ingredients.find(x => x.id === id) : { name: '', unit: 'gram', price: 0, stock: 0 };
+      const i = id ? DB.ingredients.find(x => x.id === id) : { name: '', unit: 'gram', price: 0, stock: 0, code: '' };
       showModal(`
     <div class="modal-header"><div class="modal-title">${id ? 'Edit' : 'Tambah'} Bahan</div><button class="btn-icon" onclick="closeModal()" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
+    ${id ? `<div class="form-group"><label class="form-label">Kode Bahan</label><input type="text" value="${i.code || ''}" disabled style="background:var(--gray-100);cursor:not-allowed"></div>` : ''}
     <div class="form-group"><label class="form-label">Nama Bahan *</label><input type="text" id="if-name" value="${i.name}"></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">Satuan *</label><select id="if-unit" aria-label="Pilihan"><option ${i.unit === 'gram' ? 'selected' : ''}>gram</option><option ${i.unit === 'kg' ? 'selected' : ''}>kg</option><option ${i.unit === 'ml' ? 'selected' : ''}>ml</option><option ${i.unit === 'liter' ? 'selected' : ''}>liter</option><option ${i.unit === 'pcs' ? 'selected' : ''}>pcs</option><option ${i.unit === 'sdm' ? 'selected' : ''}>sdm</option></select></div>
@@ -973,9 +1102,19 @@
     function saveIng() {
       const name = document.getElementById('if-name').value.trim();
       if (!name) { toast('Nama bahan wajib diisi', 'warning'); return }
+
+      // MASALAH 2: Validasi Duplikat (Case Insensitive & Trimmed)
+      const isDuplicate = DB.ingredients.some(i => i.name.toLowerCase() === name.toLowerCase() && i.id !== editingId);
+      if (isDuplicate) {
+         toast('Nama bahan sudah digunakan. Silakan gunakan nama yang berbeda.', 'warning');
+         return;
+      }
+
       const data = { name, unit: document.getElementById('if-unit').value, stock: parseFloat(document.getElementById('if-stock').value) || 0 };
-      if (editingId) { Object.assign(DB.ingredients.find(x => x.id === editingId), data); toast('Bahan diperbarui', 'success') }
-      else { DB.ingredients.push({ id: 'i' + Date.now(), ...data }); toast('Bahan ditambahkan', 'success') }
+      let newIng;
+      if (editingId) { newIng = DB.ingredients.find(x => x.id === editingId); Object.assign(newIng, data); toast('Bahan diperbarui', 'success') }
+      else { newIng = { id: 'i' + Date.now(), code: getNextIngredientCode(), ...data }; DB.ingredients.push(newIng); toast('Bahan ditambahkan', 'success') }
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'ingredients', newIng.id), newIng).catch(e => console.error(e)); // PATCH 5
       saveDB(); closeModal(); renderIngredients(); 
     }
     function deleteIng(id) {
@@ -1029,7 +1168,8 @@
       g.innerHTML = DB.products.map(p => {
         const recipe = DB.recipes.find(r => r.productId === p.id);
         const hpp = calcHPP(p.id);
-        const margin = p.price ? ((p.price - hpp) / p.price * 100).toFixed(1) : 0;
+        const marginObj = ((p.price - hpp) / p.price * 100);
+        const margin = p.price > 0 && !isNaN(marginObj) ? marginObj.toFixed(1) : 0;
         return `<div class="card" style="position:relative">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div style="font-size:28px">${p.emoji || '🍽️'}</div>
@@ -1066,19 +1206,31 @@
     function renderRecipeRows() {
       const f = document.getElementById('recipe-items-form');
       if (!f) return;
-      f.innerHTML = recipeRows.map((row, i) => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-    <select style="flex:2" onchange="recipeRows[${i}].ingId=this.value" aria-label="Pilihan">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === row.ingId ? 'selected' : ''}>${ing.name} (${ing.unit})</option>`).join('')}</select>
-    <input type="number" style="width:90px" placeholder="Qty" value="${row.qty}" oninput="recipeRows[${i}].qty=parseFloat(this.value)||0">
+      const datalistHTML = `<datalist id="ing-datalist">${DB.ingredients.map(ing => `<option value="${ing.name} (${ing.unit})"></option>`).join('')}</datalist>`;
+      f.innerHTML = datalistHTML + (recipeRows.map((row, i) => {
+        const ing = DB.ingredients.find(x => x.id === row.ingId);
+        const ingLabel = ing ? `${ing.name} (${ing.unit})` : '';
+        return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <input type="text" style="flex:2" class="form-control" list="ing-datalist" placeholder="Cari bahan..." value="${ingLabel}" onchange="updateRecipeRowIng(${i}, this.value)">
+    <input type="number" style="width:90px" class="form-control" placeholder="Qty" value="${row.qty}" oninput="recipeRows[${i}].qty=parseFloat(this.value)||0">
     <button class="btn-icon" onclick="recipeRows.splice(${i},1);renderRecipeRows()" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
-  </div>`).join('') || '<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:12px">Belum ada bahan. Klik "Tambah Bahan".</div>';
+  </div>`;
+      }).join('') || '<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:12px">Belum ada bahan. Klik "Tambah Bahan".</div>');
+    }
+    window.updateRecipeRowIng = function(index, label) {
+       const ing = DB.ingredients.find(i => `${i.name} (${i.unit})` === label);
+       if (ing) recipeRows[index].ingId = ing.id;
+       renderRecipeRows();
     }
     function addRecipeItemRow() { recipeRows.push({ ingId: DB.ingredients[0]?.id || '', qty: 0 }); renderRecipeRows() }
     function saveRecipe() {
       const productId = document.getElementById('rp-product').value;
       if (!productId) { toast('Pilih produk', 'warning'); return }
       const existing = DB.recipes.find(r => r.productId === productId);
-      if (existing) existing.items = [...recipeRows];
-      else DB.recipes.push({ id: 'r' + Date.now(), productId, items: [...recipeRows] });
+      let newRecipe;
+      if (existing) { existing.items = [...recipeRows]; newRecipe = existing; }
+      else { newRecipe = { id: 'r' + Date.now(), productId, items: [...recipeRows] }; DB.recipes.push(newRecipe); }
+      if(window.db) window.fbSetDoc(window.fbDoc(window.db, 'recipes', newRecipe.id), newRecipe).catch(e => console.error(e)); // PATCH 5
       saveDB(); closeModal(); renderRecipes(); toast('Resep disimpan', 'success');
     }
 
@@ -1215,10 +1367,10 @@
     async function refreshOrders() {
       if(!window.db) return;
       try {
+        toast('Menyinkronkan...', 'info');
         const snap = await window.fbGetDocs(window.fbCollection(window.db, 'orders'));
-        const newOrders = [];
-        snap.forEach(d => newOrders.push(d.data()));
-        DB.orders = newOrders;
+        DB.orders = []; // PATCH 6: Bersihkan cache lokal
+        snap.forEach(d => DB.orders.push(d.data()));
         saveDB();
         renderOrders();
         toast('Pesanan disinkronkan', 'success');
@@ -1405,10 +1557,10 @@
     async function refreshProcurement() {
       if(!window.db) return;
       try {
+        toast('Menyinkronkan...', 'info');
         const snap = await window.fbGetDocs(window.fbCollection(window.db, 'procurement'));
-        const newProc = [];
-        snap.forEach(d => newProc.push(d.data()));
-        DB.procurement = newProc;
+        DB.procurement = []; // PATCH 6: Bersihkan cache lokal
+        snap.forEach(d => DB.procurement.push(d.data()));
         saveDB();
         renderProcurement();
         toast('Data pengadaan disinkronkan', 'success');
@@ -1498,13 +1650,26 @@
     let prItems = [];
     function renderPRItems() {
       const el = document.getElementById('pr-items'); if (!el) return;
-      el.innerHTML = prItems.map((it, i) => `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:8px">
-    <select onchange="prItems[${i}].ingId=this.value;updatePRUnit(${i})" aria-label="Pilihan">${DB.ingredients.map(ing => `<option value="${ing.id}" ${ing.id === it.ingId ? 'selected' : ''}>${ing.name}</option>`).join('')}</select>
-    <input type="number" placeholder="Qty" value="${it.qty}" oninput="prItems[${i}].qty=parseFloat(this.value)||0;updatePRCost(${i})">
+      const datalistHTML = `<datalist id="ing-datalist">${DB.ingredients.map(ing => `<option value="${ing.name} (${ing.unit})"></option>`).join('')}</datalist>`;
+      el.innerHTML = datalistHTML + prItems.map((it, i) => {
+        const ing = DB.ingredients.find(x => x.id === it.ingId);
+        const ingLabel = ing ? `${ing.name} (${ing.unit})` : '';
+        return `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:8px">
+    <input type="text" list="ing-datalist" placeholder="Cari bahan..." value="${ingLabel}" onchange="updatePRRowIng(${i}, this.value)" style="width:100%">
+    <input type="number" placeholder="Qty" value="${it.qty}" oninput="prItems[${i}].qty=parseFloat(this.value)||0;if(typeof updatePRCost==='function')updatePRCost(${i})">
     <select onchange="prItems[${i}].unit=this.value" id="pr-unit-${i}" aria-label="Pilihan"><option ${it.unit === 'gram' ? 'selected' : ''}>gram</option><option ${it.unit === 'kg' ? 'selected' : ''}>kg</option><option ${it.unit === 'ml' ? 'selected' : ''}>ml</option><option ${it.unit === 'liter' ? 'selected' : ''}>liter</option><option ${it.unit === 'pcs' ? 'selected' : ''}>pcs</option></select>
     <input type="number" placeholder="Total (Rp)" value="${it.totalPrice}" oninput="prItems[${i}].totalPrice=parseFloat(this.value)||0">
     <button class="btn-icon" onclick="prItems.splice(${i},1);renderPRItems()" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
-  </div>`).join('');
+  </div>`;
+      }).join('');
+    }
+    window.updatePRRowIng = function(index, label) {
+       const ing = DB.ingredients.find(i => `${i.name} (${i.unit})` === label);
+       if (ing) {
+         prItems[index].ingId = ing.id;
+         if (typeof updatePRUnit === 'function') updatePRUnit(index);
+       }
+       renderPRItems();
     }
     function addPRItem() { prItems.push({ ingId: DB.ingredients[0]?.id || '', qty: 0, unit: 'gram', totalPrice: 0 }); renderPRItems() }
     
