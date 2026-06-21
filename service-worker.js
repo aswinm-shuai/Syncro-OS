@@ -1,20 +1,23 @@
 const CACHE_NAME = 'syncro-os-cache-v1.0.1';
 const urlsToCache = [
-  '/Syncro-OS/',
-  '/Syncro-OS/index.html',
-  '/Syncro-OS/apps/admin-dashboard/index.html',
-  '/Syncro-OS/apps/admin-dashboard/manifest.json',
-  '/Syncro-OS/apps/admin-dashboard/css/style.css',
-  '/Syncro-OS/apps/admin-dashboard/js/app.js',
-  '/Syncro-OS/apps/admin-dashboard/assets/icons/icon-192.png',
-  '/Syncro-OS/apps/admin-dashboard/assets/icons/icon-512.png'
+  './',
+  './index.html',
+  './manifest.json',
+  './css/style.css',
+  './js/app.js',
+  './assets/icons/icon-192-maskable.png',
+  './assets/icons/icon-512-maskable.png'
 ];
 
 self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        return cache.addAll(urlsToCache);
+        // Use Promise.allSettled so if one file is missing, the whole cache doesn't fail
+        return Promise.allSettled(
+          urlsToCache.map(url => cache.add(url).catch(err => console.warn('SW Cache error for', url, err)))
+        );
       })
   );
 });
@@ -34,7 +37,11 @@ self.addEventListener('fetch', event => {
         }
         // Fallback to network
         return fetch(event.request).catch(() => {
-          // You could return an offline page here if needed
+          // If network fails (offline), return cached index.html for navigation requests
+          if (event.request.mode === 'navigate' || (event.request.method === 'GET' && event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
+            return caches.match('./index.html');
+          }
+          // Return undefined for other missing resources (or a custom offline image)
         });
       })
   );
@@ -51,7 +58,7 @@ self.addEventListener('activate', event => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
@@ -95,7 +102,7 @@ self.addEventListener('push', event => {
   if (event.data) {
     try {
       payload = event.data.json();
-    } catch(e) {
+    } catch (e) {
       payload = { title: 'Syncro OS', body: event.data.text() };
     }
   } else {
