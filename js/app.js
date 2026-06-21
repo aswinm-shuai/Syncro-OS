@@ -466,12 +466,7 @@
       const theme = localStorage.getItem('syncro_theme');
       if (theme) { document.documentElement.setAttribute('data-theme', theme); if (theme === 'dark') document.getElementById('dark-icon').className = 'fas fa-sun'; }
       
-      // Register SW
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('service-worker.js');
-        });
-      }
+      // Service Worker registration is handled in index.html
       
       // Auth State Listener
       if (window.fbOnAuthStateChanged && window.auth) {
