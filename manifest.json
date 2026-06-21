@@ -74,13 +74,13 @@
       "purpose": "any"
     },
     {
-      "src": "icons/logo subflow 192x192.png",
+      "src": "apps/admin-dashboard/assets/icons/logo subflow 192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icons/logo subflow 512x512.png",
+      "src": "apps/admin-dashboard/assets/icons/logo subflow 512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -110,7 +110,7 @@
       "url": "index.html",
       "icons": [
         {
-          "src": "icons/logo subflow 192x192.png",
+          "src": "apps/admin-dashboard/assets/icons/logo subflow 192x192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -123,7 +123,7 @@
       "url": "index.html#transaksi",
       "icons": [
         {
-          "src": "icons/logo subflow 192x192.png",
+          "src": "apps/admin-dashboard/assets/icons/logo subflow 192x192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
