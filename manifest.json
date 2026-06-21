@@ -1,7 +1,7 @@
 {
-  "id": "/",
+  "id": "com.syncro.os",
   "name": "Syncro OS",
-  "short_name": "Syncro OS",
+  "short_name": "Syncro",
   "description": "Aplikasi Manajemen Bisnis Kuliner",
   "version": "1.0.1",
   "start_url": "/Syncro-OS/",
