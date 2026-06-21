@@ -14,7 +14,6 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        // Use Promise.allSettled so if one file is missing, the whole cache doesn't fail
         return Promise.allSettled(
           urlsToCache.map(url => cache.add(url).catch(err => console.warn('SW Cache error for', url, err)))
         );
@@ -41,7 +40,6 @@ self.addEventListener('fetch', event => {
           if (event.request.mode === 'navigate' || (event.request.method === 'GET' && event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
             return caches.match('./index.html');
           }
-          // Return undefined for other missing resources (or a custom offline image)
         });
       })
   );
@@ -102,7 +100,7 @@ self.addEventListener('push', event => {
   if (event.data) {
     try {
       payload = event.data.json();
-    } catch (e) {
+    } catch(e) {
       payload = { title: 'Syncro OS', body: event.data.text() };
     }
   } else {
