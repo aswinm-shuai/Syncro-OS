@@ -1,4 +1,4 @@
-const CACHE_NAME = 'syncro-cache-v1';
+const CACHE_NAME = 'syncro-os-cache-v1';
 const urlsToCache = [
   './',
   './index.html',
@@ -25,7 +25,7 @@ self.addEventListener('fetch', event => {
   const url = event.request.url;
   // Bypassing Firebase, Firestore, IdentityToolkit, Cloudinary
   if (
-    url.includes('firestore.googleapis.com') || 
+    url.includes('firestore.googleapis.com') ||
     url.includes('firebaseio.com') ||
     url.includes('identitytoolkit.googleapis.com') ||
     url.includes('cloudinary.com')
@@ -52,17 +52,14 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(key => key !== CACHE_NAME && !key.startsWith('syncro-os-cache-v'))
+          .map(key => caches.delete(key))
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
@@ -106,7 +103,7 @@ self.addEventListener('push', event => {
   if (event.data) {
     try {
       payload = event.data.json();
-    } catch(e) {
+    } catch (e) {
       payload = { title: 'Syncro OS', body: event.data.text() };
     }
   } else {
