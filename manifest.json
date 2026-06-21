@@ -3,8 +3,8 @@
   "name": "Syncro OS",
   "short_name": "Syncro OS",
   "description": "Aplikasi Manajemen Bisnis Kuliner",
-  "start_url": "index.html",
-  "scope": ".",
+  "start_url": "/Syncro-OS/",
+  "scope": "/Syncro-OS/",
   "display": "standalone",
   "display_override": [
     "window-controls-overlay",
@@ -27,8 +27,8 @@
   "related_applications": [
     {
       "platform": "webapp",
-      "url": "https://subflow-web-8070c.web.app/manifest.json",
-      "id": "com.subflow.app"
+      "url": "https://syncro-os.web.app/manifest.json",
+      "id": "syncro-os"
     }
   ],
   "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
@@ -40,17 +40,18 @@
   },
   "widgets": [
     {
-      "name": "Subflow Widget",
+      "name": "Syncro OS Widget",
       "description": "Ringkasan langganan aktif kamu",
-      "tag": "subflow-summary",
-      "template": "subflow-widget",
+      "tag": "syncro-summary",
+      "template": "syncro-widget",
       "ms_ac_template": "widgets/widget-template.json",
       "data": "widgets/widget-data.json",
       "type": "application/json",
       "icons": [
         {
-          "src": "icons/logo subflow 192x192.png",
-          "sizes": "192x192"
+          "src": "assets/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ],
       "auth": false,
@@ -62,25 +63,25 @@
   },
   "icons": [
     {
-      "src": "apps/admin-dashboard/assets/icons/logo subflow 192x192.png",
+      "src": "assets/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "apps/admin-dashboard/assets/icons/logo subflow 512x512.png",
+      "src": "assets/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "apps/admin-dashboard/assets/icons/logo subflow 192x192.png",
+      "src": "assets/icons/icon-192-maskable.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "apps/admin-dashboard/assets/icons/logo subflow 512x512.png",
+      "src": "assets/icons/icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -88,14 +89,14 @@
   ],
   "screenshots": [
     {
-      "src": "icons/Screenshot 2026-04-22 131007.png",
-      "sizes": "1280x720",
+      "src": "assets/screenshots/dashboard-desktop.png",
+      "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
       "label": "Dashboard Subflow Desktop"
     },
     {
-      "src": "icons/screenshot dashbord.png",
+      "src": "assets/screenshots/dashboard-mobile.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
@@ -110,7 +111,7 @@
       "url": "index.html",
       "icons": [
         {
-          "src": "apps/admin-dashboard/assets/icons/logo subflow 192x192.png",
+          "src": "assets/icons/icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -123,7 +124,7 @@
       "url": "index.html#transaksi",
       "icons": [
         {
-          "src": "apps/admin-dashboard/assets/icons/logo subflow 192x192.png",
+          "src": "assets/icons/icon-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
