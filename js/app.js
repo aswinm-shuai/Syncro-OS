@@ -383,6 +383,28 @@
       updateBadgeOrders(); 
       initFirebaseListeners();
       navigate('dashboard');
+
+      // Request Notification Permission on Login/Start
+      if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+
+      // Register Background Sync and Periodic Sync
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(async registration => {
+          if ('sync' in registration) {
+            try { await registration.sync.register('syncro-data-sync'); } catch(e) {}
+          }
+          if ('periodicSync' in registration) {
+            try {
+              const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+              if (status.state === 'granted') {
+                await registration.periodicSync.register('syncro-periodic-sync', { minInterval: 12 * 60 * 60 * 1000 });
+              }
+            } catch(e) {}
+          }
+        });
+      }
     }
 
     // ===================== NAVIGATION =====================
@@ -1378,6 +1400,11 @@
     }
 
     function renderOrders() {
+      // Request Notification Permission when opening orders
+      if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+
       const pending = DB.orders.filter(o => o.status === 'pending').length;
       document.getElementById('main-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
