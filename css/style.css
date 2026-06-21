@@ -476,7 +476,9 @@
 
     /* RESPONSIVE */
     @media(max-width:992px) {
-      .stat-grid { grid-template-columns: repeat(2, 1fr) }
+      .stat-grid {
+        grid-template-columns: repeat(2, 1fr)
+      }
     }
 
     @media(max-width:768px) {
@@ -519,7 +521,7 @@
         padding: 0 16px;
         height: 56px;
       }
-      
+
       .topbar-title {
         font-size: 18px;
       }
@@ -923,10 +925,21 @@
       width: 4px;
     }
 
-    .stat-card.emerald::before { background: var(--emerald) }
-    .stat-card.gold::before { background: var(--gold) }
-    .stat-card.blue::before { background: var(--info) }
-    .stat-card.danger::before { background: var(--danger) }
+    .stat-card.emerald::before {
+      background: var(--emerald)
+    }
+
+    .stat-card.gold::before {
+      background: var(--gold)
+    }
+
+    .stat-card.blue::before {
+      background: var(--info)
+    }
+
+    .stat-card.danger::before {
+      background: var(--danger)
+    }
 
     .stat-label {
       font-size: 13px;
@@ -1091,17 +1104,20 @@
     canvas {
       max-height: 280px
     }
-    
+
     @media(max-width:768px) {
       .stat-card {
         padding: 20px;
       }
+
       .card {
         padding: 20px;
       }
+
       .chart-container {
         height: 250px;
       }
+
       canvas {
         max-height: 250px;
       }
@@ -1255,5 +1271,3 @@
       color: var(--gray-400);
       font-size: 14px
     }
-
-
