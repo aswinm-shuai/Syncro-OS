@@ -1,4 +1,4 @@
-const CACHE_NAME = 'syncro-os-cache-v1.0.1';
+const CACHE_NAME = 'syncro-cache-v1';
 const urlsToCache = [
   './',
   './index.html',
@@ -22,8 +22,14 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Bypassing Firebase/Firestore requests from cache
-  if (event.request.url.includes('firestore.googleapis.com') || event.request.url.includes('firebase')) {
+  const url = event.request.url;
+  // Bypassing Firebase, Firestore, IdentityToolkit, Cloudinary
+  if (
+    url.includes('firestore.googleapis.com') || 
+    url.includes('firebaseio.com') ||
+    url.includes('identitytoolkit.googleapis.com') ||
+    url.includes('cloudinary.com')
+  ) {
     return;
   }
 
