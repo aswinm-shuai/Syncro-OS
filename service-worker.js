@@ -1,78 +1,48 @@
-const CACHE_NAME = 'syncro-static-v1';
-const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './css/style.css',
-  './js/app.js',
-  './manifest.json',
-  './assets/icons/favicon.png'
+const CACHE_NAME = 'syncro-os-cache-v1';
+const urlsToCache = [
+  '/Syncro-OS/',
+  '/Syncro-OS/index.html',
+  '/Syncro-OS/apps/admin-dashboard/index.html',
+  '/Syncro-OS/apps/admin-dashboard/manifest.json',
+  '/Syncro-OS/apps/admin-dashboard/css/style.css',
+  '/Syncro-OS/apps/admin-dashboard/js/app.js',
+  '/Syncro-OS/apps/admin-dashboard/assets/icons/icon-192.png',
+  '/Syncro-OS/apps/admin-dashboard/assets/icons/icon-512.png'
 ];
 
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // Catch errors silently if some assets are missing
-      return cache.addAll(STATIC_ASSETS).catch(err => console.warn('Cache error:', err));
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        return cache.addAll(urlsToCache);
+      })
   );
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
+      })
+  );
+});
+
+self.addEventListener('activate', event => {
+  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
       );
     })
   );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // Jangan cache API, Firestore, Firebase Auth, Analytics, dll
-  if (
-    url.hostname.includes('firebaseio.com') ||
-    url.hostname.includes('firestore.googleapis.com') ||
-    url.hostname.includes('identitytoolkit.googleapis.com') ||
-    url.hostname.includes('cloudinary.com') ||
-    url.hostname.includes('gstatic.com') ||
-    url.protocol.startsWith('chrome-extension')
-  ) {
-    return; // biarkan browser handle secara default (network only)
-  }
-
-  // Hanya proses metode GET
-  if (event.request.method !== 'GET') return;
-
-  // Cache-first strategy untuk file statis
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse; // Return dari cache jika ada
-        }
-        // Fetch dari network jika tidak ada di cache
-        return fetch(event.request).then((networkResponse) => {
-          // Validasi response sebelum cache (hanya HTTP 200 dan type basic)
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-            return networkResponse;
-          }
-          
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-          
-          return networkResponse;
-        }).catch(() => {
-          // Optional: Handle offline fallback here
-        });
-      })
-    );
-  }
 });
