@@ -348,7 +348,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/Syncro-OS/service-worker.js')
+        navigator.serviceWorker.register('/Syncro-OS/service-worker.js', { scope: '/Syncro-OS/' })
           .then(registration => {
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
           })
