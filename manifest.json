@@ -8,9 +8,15 @@
   "scope": "/Syncro-OS/",
   "display": "standalone",
   "display_override": [
+    "tabbed",
     "window-controls-overlay",
     "standalone",
     "minimal-ui"
+  ],
+  "scope_extensions": [
+    {
+      "origin": "https://syncro-os.web.app"
+    }
   ],
   "background_color": "#4F46E5",
   "theme_color": "#4F46E5",
