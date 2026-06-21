@@ -93,14 +93,14 @@
       "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Dashboard Subflow Desktop"
+      "label": "Dashboard Syncro OS Desktop"
     },
     {
       "src": "assets/screenshots/dashboard-mobile.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Dashboard Subflow Mobile"
+      "label": "Dashboard Syncro OS Mobile"
     }
   ],
   "shortcuts": [
