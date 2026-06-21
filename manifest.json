@@ -3,6 +3,7 @@
   "name": "Syncro OS",
   "short_name": "Syncro OS",
   "description": "Aplikasi Manajemen Bisnis Kuliner",
+  "version": "1.0.1",
   "start_url": "/Syncro-OS/",
   "scope": "/Syncro-OS/",
   "display": "standalone",
@@ -41,7 +42,7 @@
   "widgets": [
     {
       "name": "Syncro OS Widget",
-      "description": "Ringkasan langganan aktif kamu",
+      "description": "Ringkasan operasional bisnis Syncro OS",
       "tag": "syncro-summary",
       "template": "syncro-widget",
       "ms_ac_template": "widgets/widget-template.json",
@@ -93,21 +94,21 @@
       "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Dashboard Subflow Desktop"
+      "label": "Dashboard Syncro OS Desktop"
     },
     {
       "src": "assets/screenshots/dashboard-mobile.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Dashboard Subflow Mobile"
+      "label": "Dashboard Syncro OS Mobile"
     }
   ],
   "shortcuts": [
     {
       "name": "Buka Beranda",
       "short_name": "Home",
-      "description": "Kembali ke halaman utama Subflow",
+      "description": "Kembali ke halaman utama Syncro OS",
       "url": "index.html",
       "icons": [
         {
@@ -156,7 +157,7 @@
   ],
   "protocol_handlers": [
     {
-      "protocol": "web+subflow",
+      "protocol": "web+syncro",
       "url": "index.html?url=%s"
     }
   ]
